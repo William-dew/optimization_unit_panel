@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panélisation | William-Dew</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%2310b981' width='100' height='100' rx='15'/%3E%3Crect fill='%23059669' x='10' y='10' width='35' height='35' rx='3'/%3E%3Crect fill='%23059669' x='55' y='10' width='35' height='35' rx='3'/%3E%3Crect fill='%23059669' x='10' y='55' width='35' height='35' rx='3'/%3E%3Crect fill='%23059669' x='55' y='55' width='35' height='35' rx='3'/%3E%3Ccircle fill='%23fbbf24' cx='27.5' cy='27.5' r='4'/%3E%3Ccircle fill='%23fbbf24' cx='72.5' cy='27.5' r='4'/%3E%3Ccircle fill='%23fbbf24' cx='27.5' cy='72.5' r='4'/%3E%3Ccircle fill='%23fbbf24' cx='72.5' cy='72.5' r='4'/%3E%3C/svg%3E">
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .modal-backdrop {
+            backdrop-filter: blur(8px);
+        }
+        .tooltip {
+            position: relative;
+        }
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        .tooltip-text {
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+            position: absolute;
+            z-index: 100;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #1f2937;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1f2937 transparent transparent transparent;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        .section-card {
+            transition: all 0.3s ease;
+        }
+        .section-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect } = React;
+
+        const Icon = ({ name, className = "w-5 h-5" }) => {
+            const iconRef = React.useRef(null);
+            
+            React.useEffect(() => {
+                if (iconRef.current && window.lucide) {
+                    const iconElement = window.lucide.createElement(window.lucide[name]);
+                    iconRef.current.innerHTML = '';
+                    iconRef.current.appendChild(iconElement);
+                }
+            }, [name]);
+            
+            return <i ref={iconRef} className={className}></i>;
+        };
+
+        const Tooltip = ({ text, children }) => (
+            <div className="tooltip inline-block">
+                {children}
+                <span className="tooltip-text">{text}</span>
+            </div>
+        );
+
+        const STANDARD_FORMATS = [
+            { name: 'DF 600x500mm', width: 600, height: 500, category: 'DOUBLE FACE' },
+            { name: 'DF 610x450mm', width: 610, height: 450, category: 'DOUBLE FACE' },
+            { name: 'DF 460x300mm', width: 460, height: 300, category: 'DOUBLE FACE' },
+            { name: 'MC 580x510mm', width: 580, height: 510, category: 'MULTICOUCHES' },
+            { name: 'MC 570x480mm', width: 570, height: 480, category: 'MULTICOUCHES' },
+        ];
+
+        const PRESET_SPACINGS = [
+            { value: 2, label: '2mm' },
+            { value: 5, label: '5mm' },
+            { value: 10, label: '10mm' },
+            { value: 12.5, label: '12.5mm' },
+        ];
+
+        const DEFAULT_VALUES = {
+            pcbWidth: 80,
+            pcbHeight: 70,
+            frameMargin: 15,
+            spacing: 5,
+            panoplieFrameMargin: 8,
+            panoplieSpacing: 2,
+            panoplieEntraxe: 5
+        };
+
+        const calculateConfig = (
+            primaryOrientation,
+            primaryCols,
+            primaryRows,
+            pcbW,
+            pcbH,
+            spacing,
+            availableWidth,
+            availableHeight,
+            enableMixedMode
+        ) => {
+            const isPrimary0 = primaryOrientation === 0;
+            const primaryW = isPrimary0 ? pcbW : pcbH;
+            const primaryH = isPrimary0 ? pcbH : pcbW;
+            const secondaryW = isPrimary0 ? pcbH : pcbW;
+            const secondaryH = isPrimary0 ? pcbW : pcbH;
+
+            const primaryCount = primaryCols * primaryRows;
+            const primaryUsedW = primaryCols * primaryW + (primaryCols - 1) * spacing;
+            const primaryUsedH = primaryRows * primaryH + (primaryRows - 1) * spacing;
+
+            const rightSpace = availableWidth - primaryUsedW;
+            const bottomSpace = availableHeight - primaryUsedH;
+
+            let secondaryPcbs = [];
+            let secondaryCount = 0;
+
+            if (enableMixedMode) {
+                if (rightSpace >= secondaryW + spacing) {
+                    const rightCols = Math.floor((rightSpace - spacing) / (secondaryW + spacing));
+                    const rightRows = Math.floor((primaryUsedH + spacing) / (secondaryH + spacing));
+                    if (rightCols > 0 && rightRows > 0) {
+                        for (let row = 0; row < rightRows; row++) {
+                            for (let col = 0; col < rightCols; col++) {
+                                secondaryPcbs.push({
+                                    x: primaryUsedW + spacing + col * (secondaryW + spacing),
+                                    y: row * (secondaryH + spacing),
+                                    w: secondaryW,
+                                    h: secondaryH,
+                                    orientation: isPrimary0 ? 90 : 0
+                                });
+                                secondaryCount++;
+                            }
+                        }
+                    }
+                }
+
+                if (bottomSpace >= secondaryH + spacing) {
+                    const bottomCols = Math.floor((availableWidth + spacing) / (secondaryW + spacing));
+                    const bottomRows = Math.floor((bottomSpace - spacing) / (secondaryH + spacing));
+                    if (bottomCols > 0 && bottomRows > 0) {
+                        for (let row = 0; row < bottomRows; row++) {
+                            for (let col = 0; col < bottomCols; col++) {
+                                secondaryPcbs.push({
+                                    x: col * (secondaryW + spacing),
+                                    y: primaryUsedH + spacing + row * (secondaryH + spacing),
+                                    w: secondaryW,
+                                    h: secondaryH,
+                                    orientation: isPrimary0 ? 90 : 0
+                                });
+                                secondaryCount++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            const totalCount = primaryCount + secondaryCount;
+            const pcbArea = pcbW * pcbH;
+            const totalArea = totalCount * pcbArea;
+            const utilization = (totalArea / (availableWidth * availableHeight)) * 100;
+
+            return {
+                primaryOrientation,
+                primaryCols,
+                primaryRows,
+                primaryCount,
+                secondaryCount,
+                totalCount,
+                utilization,
+                primaryW,
+                primaryH,
+                secondaryPcbs,
+                usedWidth: primaryUsedW,
+                usedHeight: primaryUsedH,
+                description: enableMixedMode 
+                    ? `${primaryOrientation}° (${primaryCols}×${primaryRows}) + ${isPrimary0 ? '90°' : '0°'} (${secondaryCount})`
+                    : `${primaryOrientation}° (${primaryCols}×${primaryRows})`
+            };
+        };
+
+        const calculateSinglePanoplieConfig = (
+            panopliesPerRow,
+            panopliesPerCol,
+            orientation,
+            panoplieCols,
+            panoplieRows,
+            pcbW,
+            pcbH,
+            spacing,
+            panoplieFrameMargin,
+            panoplieEntraxe,
+            availableWidth,
+            availableHeight,
+            enableMixedMode,
+            panoplieWidth,
+            panoplieHeight,
+            pcbsPerPanoplie
+        ) => {
+            const isOrientation0 = orientation === 0;
+            const invertedOrientation = isOrientation0 ? 90 : 0;
+            const pcbWidthUsed = isOrientation0 ? pcbW : pcbH;
+            const pcbHeightUsed = isOrientation0 ? pcbH : pcbW;
+
+            const totalPanopliesPrimary = panopliesPerRow * panopliesPerCol;
+            const primaryUsedWidth = panopliesPerRow * panoplieWidth + (panopliesPerRow - 1) * panoplieEntraxe;
+            const primaryUsedHeight = panopliesPerCol * panoplieHeight + (panopliesPerCol - 1) * panoplieEntraxe;
+
+            const allPcbs = [];
+            const panoplieFramesData = new Map();
+            let panoplieIndex = 0;
+            
+            for (let panoplieRow = 0; panoplieRow < panopliesPerCol; panoplieRow++) {
+                for (let panoplieCol = 0; panoplieCol < panopliesPerRow; panoplieCol++) {
+                    const panoplieOffsetX = panoplieCol * (panoplieWidth + panoplieEntraxe);
+                    const panoplieOffsetY = panoplieRow * (panoplieHeight + panoplieEntraxe);
+                    
+                    panoplieFramesData.set(panoplieIndex, {
+                        x: panoplieOffsetX,
+                        y: panoplieOffsetY,
+                        w: panoplieWidth,
+                        h: panoplieHeight,
+                        orientation: orientation
+                    });
+
+                    for (let row = 0; row < panoplieRows; row++) {
+                        for (let col = 0; col < panoplieCols; col++) {
+                            allPcbs.push({
+                                x: panoplieOffsetX + panoplieFrameMargin + col * (pcbWidthUsed + spacing),
+                                y: panoplieOffsetY + panoplieFrameMargin + row * (pcbHeightUsed + spacing),
+                                w: pcbWidthUsed,
+                                h: pcbHeightUsed,
+                                panoplieIndex,
+                                panoplieOffsetX,
+                                panoplieOffsetY,
+                                orientation: orientation
+                            });
+                        }
+                    }
+                    panoplieIndex++;
+                }
+            }
+
+            let secondaryPanoplies = 0;
+            
+            if (enableMixedMode) {
+                // CORRECTION : Pour pivoter une panoplie, on échange sa largeur/hauteur ET les colonnes/rangées
+                const panoplieWidthRotated = panoplieHeight;
+                const panoplieHeightRotated = panoplieWidth;
+                
+                // Les PCB dans la panoplie pivotée sont aussi pivotés
+                const pcbWidthUsedRotated = isOrientation0 ? pcbH : pcbW;
+                const pcbHeightUsedRotated = isOrientation0 ? pcbW : pcbH;
+                
+                // IMPORTANT: Quand on pivote, les colonnes et rangées s'inversent !
+                const panoplieColsRotated = panoplieRows;
+                const panoplieRowsRotated = panoplieCols;
+
+                const rightSpace = availableWidth - primaryUsedWidth;
+                if (rightSpace >= panoplieWidthRotated + panoplieEntraxe) {
+                    const rightCols = Math.floor((rightSpace - panoplieEntraxe) / (panoplieWidthRotated + panoplieEntraxe));
+                    const rightRows = Math.floor((primaryUsedHeight + panoplieEntraxe) / (panoplieHeightRotated + panoplieEntraxe));
+                    
+                    for (let panoplieRow = 0; panoplieRow < rightRows; panoplieRow++) {
+                        for (let panoplieCol = 0; panoplieCol < rightCols; panoplieCol++) {
+                            const panoplieOffsetX = primaryUsedWidth + panoplieEntraxe + panoplieCol * (panoplieWidthRotated + panoplieEntraxe);
+                            const panoplieOffsetY = panoplieRow * (panoplieHeightRotated + panoplieEntraxe);
+                            
+                            panoplieFramesData.set(panoplieIndex, {
+                                x: panoplieOffsetX,
+                                y: panoplieOffsetY,
+                                w: panoplieWidthRotated,
+                                h: panoplieHeightRotated,
+                                orientation: invertedOrientation
+                            });
+
+                            for (let row = 0; row < panoplieRowsRotated; row++) {
+                                for (let col = 0; col < panoplieColsRotated; col++) {
+                                    allPcbs.push({
+                                        x: panoplieOffsetX + panoplieFrameMargin + col * (pcbWidthUsedRotated + spacing),
+                                        y: panoplieOffsetY + panoplieFrameMargin + row * (pcbHeightUsedRotated + spacing),
+                                        w: pcbWidthUsedRotated,
+                                        h: pcbHeightUsedRotated,
+                                        panoplieIndex,
+                                        panoplieOffsetX,
+                                        panoplieOffsetY,
+                                        orientation: invertedOrientation
+                                    });
+                                }
+                            }
+                            secondaryPanoplies++;
+                            panoplieIndex++;
+                        }
+                    }
+                }
+
+                const bottomSpace = availableHeight - primaryUsedHeight;
+                if (bottomSpace >= panoplieHeightRotated + panoplieEntraxe) {
+                    const bottomCols = Math.floor((availableWidth + panoplieEntraxe) / (panoplieWidthRotated + panoplieEntraxe));
+                    const bottomRows = Math.floor((bottomSpace - panoplieEntraxe) / (panoplieHeightRotated + panoplieEntraxe));
+                    
+                    for (let panoplieRow = 0; panoplieRow < bottomRows; panoplieRow++) {
+                        for (let panoplieCol = 0; panoplieCol < bottomCols; panoplieCol++) {
+                            const panoplieOffsetX = panoplieCol * (panoplieWidthRotated + panoplieEntraxe);
+                            const panoplieOffsetY = primaryUsedHeight + panoplieEntraxe + panoplieRow * (panoplieHeightRotated + panoplieEntraxe);
+                            
+                            panoplieFramesData.set(panoplieIndex, {
+                                x: panoplieOffsetX,
+                                y: panoplieOffsetY,
+                                w: panoplieWidthRotated,
+                                h: panoplieHeightRotated,
+                                orientation: invertedOrientation
+                            });
+
+                            for (let row = 0; row < panoplieRowsRotated; row++) {
+                                for (let col = 0; col < panoplieColsRotated; col++) {
+                                    allPcbs.push({
+                                        x: panoplieOffsetX + panoplieFrameMargin + col * (pcbWidthUsedRotated + spacing),
+                                        y: panoplieOffsetY + panoplieFrameMargin + row * (pcbHeightUsedRotated + spacing),
+                                        w: pcbWidthUsedRotated,
+                                        h: pcbHeightUsedRotated,
+                                        panoplieIndex,
+                                        panoplieOffsetX,
+                                        panoplieOffsetY,
+                                        orientation: invertedOrientation
+                                    });
+                                }
+                            }
+                            secondaryPanoplies++;
+                            panoplieIndex++;
+                        }
+                    }
+                }
+            }
+
+            const totalPanoplies = totalPanopliesPrimary + secondaryPanoplies;
+            const totalPcbs = totalPanoplies * pcbsPerPanoplie;
+            const pcbArea = pcbW * pcbH;
+            const totalArea = totalPcbs * pcbArea;
+            const utilization = (totalArea / (availableWidth * availableHeight)) * 100;
+
+            return {
+                primaryOrientation: orientation,
+                primaryCols: panopliesPerRow * panoplieCols,
+                primaryRows: panopliesPerCol * panoplieRows,
+                primaryCount: totalPanopliesPrimary * pcbsPerPanoplie,
+                secondaryCount: secondaryPanoplies * pcbsPerPanoplie,
+                totalCount: totalPcbs,
+                utilization,
+                primaryW: pcbWidthUsed,
+                primaryH: pcbHeightUsed,
+                secondaryPcbs: [],
+                isPanoplie: true,
+                panoplieWidth,
+                panoplieHeight,
+                panopliesPerRow,
+                panopliesPerCol,
+                totalPanoplies,
+                totalPanopliesPrimary,
+                secondaryPanoplies,
+                pcbsPerPanoplie,
+                panoplieEntraxe,
+                panoplieFrameMargin,
+                allPcbs,
+                panoplieFramesData,
+                description: enableMixedMode && secondaryPanoplies > 0
+                    ? `${totalPanopliesPrimary} panoplies ${orientation}° + ${secondaryPanoplies} panoplies ${invertedOrientation}° = ${totalPcbs} PCB`
+                    : `${totalPanoplies} panoplies de ${panoplieCols}×${panoplieRows} = ${totalPcbs} PCB`
+            };
+        };
+
+        const calculatePanoplieOptimization = (
+            panoplieCols,
+            panoplieRows,
+            orientation,
+            pcbW,
+            pcbH,
+            spacing,
+            panoplieFrameMargin,
+            panoplieEntraxe,
+            availableWidth,
+            availableHeight,
+            enableMixedMode
+        ) => {
+            const isOrientation0 = orientation === 0;
+            const pcbWidthUsed = isOrientation0 ? pcbW : pcbH;
+            const pcbHeightUsed = isOrientation0 ? pcbH : pcbW;
+
+            const pcbAreaWidth = panoplieCols * pcbWidthUsed + (panoplieCols - 1) * spacing;
+            const pcbAreaHeight = panoplieRows * pcbHeightUsed + (panoplieRows - 1) * spacing;
+            const panoplieWidth = pcbAreaWidth + (2 * panoplieFrameMargin);
+            const panoplieHeight = pcbAreaHeight + (2 * panoplieFrameMargin);
+
+            const panopliesPerRowFull = Math.floor((availableWidth + panoplieEntraxe) / (panoplieWidth + panoplieEntraxe));
+            const panopliesPerColFull = Math.floor((availableHeight + panoplieEntraxe) / (panoplieHeight + panoplieEntraxe));
+
+            const pcbsPerPanoplie = panoplieCols * panoplieRows;
+
+            const configurations = [];
+
+            configurations.push(
+                calculateSinglePanoplieConfig(
+                    panopliesPerRowFull, panopliesPerColFull,
+                    orientation, panoplieCols, panoplieRows,
+                    pcbW, pcbH, spacing, panoplieFrameMargin, panoplieEntraxe,
+                    availableWidth, availableHeight, enableMixedMode,
+                    panoplieWidth, panoplieHeight, pcbsPerPanoplie
+                )
+            );
+
+            if (enableMixedMode) {
+                if (panopliesPerRowFull > 1) {
+                    configurations.push(
+                        calculateSinglePanoplieConfig(
+                            panopliesPerRowFull - 1, panopliesPerColFull,
+                            orientation, panoplieCols, panoplieRows,
+                            pcbW, pcbH, spacing, panoplieFrameMargin, panoplieEntraxe,
+                            availableWidth, availableHeight, true,
+                            panoplieWidth, panoplieHeight, pcbsPerPanoplie
+                        )
+                    );
+                }
+
+                if (panopliesPerColFull > 1) {
+                    configurations.push(
+                        calculateSinglePanoplieConfig(
+                            panopliesPerRowFull, panopliesPerColFull - 1,
+                            orientation, panoplieCols, panoplieRows,
+                            pcbW, pcbH, spacing, panoplieFrameMargin, panoplieEntraxe,
+                            availableWidth, availableHeight, true,
+                            panoplieWidth, panoplieHeight, pcbsPerPanoplie
+                        )
+                    );
+                }
+
+                if (panopliesPerRowFull > 1 && panopliesPerColFull > 1) {
+                    configurations.push(
+                        calculateSinglePanoplieConfig(
+                            panopliesPerRowFull - 1, panopliesPerColFull - 1,
+                            orientation, panoplieCols, panoplieRows,
+                            pcbW, pcbH, spacing, panoplieFrameMargin, panoplieEntraxe,
+                            availableWidth, availableHeight, true,
+                            panoplieWidth, panoplieHeight, pcbsPerPanoplie
+                        )
+                    );
+                }
+            }
+
+            return configurations.reduce((best, config) => 
+                config.totalCount > best.totalCount ? config : best
+            );
+        };
+
+        const calculateAllConfigurations = (
+            panelFormat,
+            pcbWidth,
+            pcbHeight,
+            frameMargin,
+            spacing,
+            enableMixedMode
+        ) => {
+            const pcbW = parseFloat(pcbWidth) || DEFAULT_VALUES.pcbWidth;
+            const pcbH = parseFloat(pcbHeight) || DEFAULT_VALUES.pcbHeight;
+            const margin = parseFloat(frameMargin) || DEFAULT_VALUES.frameMargin;
+            const space = parseFloat(spacing) || DEFAULT_VALUES.spacing;
+            
+            const availableWidth = panelFormat.width - (2 * margin);
+            const availableHeight = panelFormat.height - (2 * margin);
+
+            const configurations = [];
+
+            const cols0Full = Math.floor((availableWidth + space) / (pcbW + space));
+            const rows0Full = Math.floor((availableHeight + space) / (pcbH + space));
+            if (cols0Full > 0 && rows0Full > 0) {
+                configurations.push(
+                    calculateConfig(0, cols0Full, rows0Full, pcbW, pcbH, space, availableWidth, availableHeight, enableMixedMode)
+                );
+            }
+
+            const cols90Full = Math.floor((availableWidth + space) / (pcbH + space));
+            const rows90Full = Math.floor((availableHeight + space) / (pcbW + space));
+            if (cols90Full > 0 && rows90Full > 0) {
+                configurations.push(
+                    calculateConfig(90, cols90Full, rows90Full, pcbW, pcbH, space, availableWidth, availableHeight, enableMixedMode)
+                );
+            }
+
+            if (enableMixedMode) {
+                if (rows0Full > 1) {
+                    configurations.push(
+                        calculateConfig(0, cols0Full, rows0Full - 1, pcbW, pcbH, space, availableWidth, availableHeight, true)
+                    );
+                }
+
+                if (cols0Full > 1) {
+                    configurations.push(
+                        calculateConfig(0, cols0Full - 1, rows0Full, pcbW, pcbH, space, availableWidth, availableHeight, true)
+                    );
+                }
+
+                if (rows90Full > 1) {
+                    configurations.push(
+                        calculateConfig(90, cols90Full, rows90Full - 1, pcbW, pcbH, space, availableWidth, availableHeight, true)
+                    );
+                }
+
+                if (cols90Full > 1) {
+                    configurations.push(
+                        calculateConfig(90, cols90Full - 1, rows90Full, pcbW, pcbH, space, availableWidth, availableHeight, true)
+                    );
+                }
+
+                if (rows0Full > 2) {
+                    configurations.push(
+                        calculateConfig(0, cols0Full, rows0Full - 2, pcbW, pcbH, space, availableWidth, availableHeight, true)
+                    );
+                }
+
+                if (cols0Full > 2) {
+                    configurations.push(
+                        calculateConfig(0, cols0Full - 2, rows0Full, pcbW, pcbH, space, availableWidth, availableHeight, true)
+                    );
+                }
+
+                if (rows90Full > 2) {
+                    configurations.push(
+                        calculateConfig(90, cols90Full, rows90Full - 2, pcbW, pcbH, space, availableWidth, availableHeight, true)
+                    );
+                }
+
+                if (cols90Full > 2) {
+                    configurations.push(
+                        calculateConfig(90, cols90Full - 2, rows90Full, pcbW, pcbH, space, availableWidth, availableHeight, true)
+                    );
+                }
+            }
+
+            const best = configurations.reduce((max, config) => 
+                config.totalCount > max.totalCount ? config : max
+            , configurations[0] || { totalCount: 0 });
+
+            return {
+                best,
+                allConfigs: configurations.sort((a, b) => b.totalCount - a.totalCount).slice(0, 6),
+                availableWidth,
+                availableHeight
+            };
+        };
+
+        const PanoplieVisualization = ({ panoplieCols, panoplieRows, pcbWidth, pcbHeight, spacing, panoplieFrameMargin, orientation, svgRef }) => {
+            const cols = parseInt(panoplieCols) || 2;
+            const rows = parseInt(panoplieRows) || 3;
+            const pcbW = parseFloat(pcbWidth) || 80;
+            const pcbH = parseFloat(pcbHeight) || 70;
+            const space = parseFloat(spacing) || 2;
+            const frame = parseFloat(panoplieFrameMargin) || 8;
+            
+            const isOrientation0 = orientation === 0;
+            const pcbWidthUsed = isOrientation0 ? pcbW : pcbH;
+            const pcbHeightUsed = isOrientation0 ? pcbH : pcbW;
+            
+            const pcbAreaWidth = cols * pcbWidthUsed + (cols - 1) * space;
+            const pcbAreaHeight = rows * pcbHeightUsed + (rows - 1) * space;
+            const panoplieWidth = pcbAreaWidth + (2 * frame);
+            const panoplieHeight = pcbAreaHeight + (2 * frame);
+            
+            const scale = Math.min(800 / panoplieWidth, 600 / panoplieHeight, 2);
+            const scaledW = panoplieWidth * scale;
+            const scaledH = panoplieHeight * scale;
+            const scaledFrame = frame * scale;
+            const scaledSpace = space * scale;
+            
+            const margin = 80;
+            const svgWidth = scaledW + margin * 2;
+            const svgHeight = scaledH + margin * 2;
+            
+            const pcbs = [];
+            
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const x = margin + scaledFrame + col * (pcbWidthUsed * scale + scaledSpace);
+                    const y = margin + scaledFrame + row * (pcbHeightUsed * scale + scaledSpace);
+                    const w = pcbWidthUsed * scale;
+                    const h = pcbHeightUsed * scale;
+                    
+                    pcbs.push(
+                        <rect
+                            key={`pcb-${row}-${col}`}
+                            x={x}
+                            y={y}
+                            width={w}
+                            height={h}
+                            fill="#10b981"
+                            stroke="#059669"
+                            strokeWidth="2"
+                            rx="3"
+                        />
+                    );
+                    
+                    pcbs.push(
+                        <text
+                            key={`label-${row}-${col}`}
+                            x={x + w / 2}
+                            y={y + h / 2}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            fill="#ffffff"
+                            fontSize="14"
+                            fontWeight="bold"
+                            style={{ pointerEvents: 'none' }}
+                        >
+                            {row * cols + col + 1}
+                        </text>
+                    );
+                }
+            }
+            
+            const Dimension = ({ x1, y1, x2, y2, label, offset = 30, side = 'bottom' }) => {
+                const isHorizontal = Math.abs(y2 - y1) < 1;
+                const midX = (x1 + x2) / 2;
+                const midY = (y1 + y2) / 2;
+                
+                if (isHorizontal) {
+                    const lineY = side === 'top' ? y1 - offset : y1 + offset;
+                    return (
+                        <g key={`dim-${x1}-${y1}-${x2}-${y2}`}>
+                            <line x1={x1} y1={lineY} x2={x2} y2={lineY} stroke="#dc2626" strokeWidth="2" />
+                            <polygon points={`${x1},${lineY} ${x1+8},${lineY-4} ${x1+8},${lineY+4}`} fill="#dc2626" />
+                            <polygon points={`${x2},${lineY} ${x2-8},${lineY-4} ${x2-8},${lineY+4}`} fill="#dc2626" />
+                            <line x1={x1} y1={y1} x2={x1} y2={lineY} stroke="#dc2626" strokeWidth="1" strokeDasharray="3,3" />
+                            <line x1={x2} y1={y2} x2={x2} y2={lineY} stroke="#dc2626" strokeWidth="1" strokeDasharray="3,3" />
+                            <text x={midX} y={lineY + (side === 'top' ? -10 : 20)} textAnchor="middle" fill="#dc2626" fontSize="12" fontWeight="bold">
+                                {label}
+                            </text>
+                        </g>
+                    );
+                } else {
+                    const lineX = side === 'left' ? x1 - offset : x1 + offset;
+                    return (
+                        <g key={`dim-${x1}-${y1}-${x2}-${y2}`}>
+                            <line x1={lineX} y1={y1} x2={lineX} y2={y2} stroke="#dc2626" strokeWidth="2" />
+                            <polygon points={`${lineX},${y1} ${lineX-4},${y1+8} ${lineX+4},${y1+8}`} fill="#dc2626" />
+                            <polygon points={`${lineX},${y2} ${lineX-4},${y2-8} ${lineX+4},${y2-8}`} fill="#dc2626" />
+                            <line x1={x1} y1={y1} x2={lineX} y2={y1} stroke="#dc2626" strokeWidth="1" strokeDasharray="3,3" />
+                            <line x1={x2} y1={y2} x2={lineX} y2={y2} stroke="#dc2626" strokeWidth="1" strokeDasharray="3,3" />
+                            <text x={lineX + (side === 'left' ? -10 : 10)} y={midY} textAnchor={side === 'left' ? 'end' : 'start'} dominantBaseline="middle" fill="#dc2626" fontSize="12" fontWeight="bold">
+                                {label}
+                            </text>
+                        </g>
+                    );
+                }
+            };
+            
+            return (
+                <svg ref={svgRef} width={svgWidth} height={svgHeight} className="mx-auto bg-white">
+                    <rect
+                        x={margin}
+                        y={margin}
+                        width={scaledW}
+                        height={scaledH}
+                        fill="none"
+                        stroke="#9ca3af"
+                        strokeWidth="2"
+                        strokeDasharray="5,5"
+                        rx="4"
+                    />
+                    
+                    <rect
+                        x={margin + scaledFrame}
+                        y={margin + scaledFrame}
+                        width={scaledW - 2 * scaledFrame}
+                        height={scaledH - 2 * scaledFrame}
+                        fill="#f3f4f6"
+                        stroke="none"
+                    />
+                    
+                    {pcbs}
+                    
+                    <Dimension 
+                        x1={margin} 
+                        y1={margin} 
+                        x2={margin + scaledW} 
+                        y2={margin}
+                        label={`${panoplieWidth.toFixed(1)}mm`}
+                        offset={40}
+                        side="top"
+                    />
+                    
+                    <Dimension 
+                        x1={margin + scaledW} 
+                        y1={margin} 
+                        x2={margin + scaledW} 
+                        y2={margin + scaledH}
+                        label={`${panoplieHeight.toFixed(1)}mm`}
+                        offset={40}
+                        side="right"
+                    />
+                    
+                    <Dimension 
+                        x1={margin} 
+                        y1={margin} 
+                        x2={margin + scaledFrame} 
+                        y2={margin}
+                        label={`${frame}mm`}
+                        offset={20}
+                        side="top"
+                    />
+                    
+                    <Dimension 
+                        x1={margin + scaledFrame} 
+                        y1={margin + scaledFrame} 
+                        x2={margin + scaledFrame + pcbWidthUsed * scale} 
+                        y2={margin + scaledFrame}
+                        label={`${pcbWidthUsed.toFixed(1)}mm`}
+                        offset={20}
+                        side="top"
+                    />
+                    
+                    {cols > 1 && (
+                        <Dimension 
+                            x1={margin + scaledFrame + pcbWidthUsed * scale} 
+                            y1={margin + scaledFrame + pcbHeightUsed * scale / 2} 
+                            x2={margin + scaledFrame + pcbWidthUsed * scale + scaledSpace} 
+                            y2={margin + scaledFrame + pcbHeightUsed * scale / 2}
+                            label={`${space}mm`}
+                            offset={15}
+                            side="bottom"
+                        />
+                    )}
+                    
+                    <Dimension 
+                        x1={margin + scaledFrame} 
+                        y1={margin + scaledFrame} 
+                        x2={margin + scaledFrame} 
+                        y2={margin + scaledFrame + pcbHeightUsed * scale}
+                        label={`${pcbHeightUsed.toFixed(1)}mm`}
+                        offset={20}
+                        side="left"
+                    />
+                    
+                    {rows > 1 && (
+                        <Dimension 
+                            x1={margin + scaledFrame + pcbWidthUsed * scale / 2} 
+                            y1={margin + scaledFrame + pcbHeightUsed * scale} 
+                            x2={margin + scaledFrame + pcbWidthUsed * scale / 2} 
+                            y2={margin + scaledFrame + pcbHeightUsed * scale + scaledSpace}
+                            label={`${space}mm`}
+                            offset={30}
+                            side="left"
+                        />
+                    )}
+                    
+                    <Dimension 
+                        x1={margin} 
+                        y1={margin} 
+                        x2={margin} 
+                        y2={margin + scaledFrame}
+                        label={`${frame}mm`}
+                        offset={20}
+                        side="left"
+                    />
+                    
+                    <g transform={`translate(${margin}, ${margin + scaledH + 50})`}>
+                        <text x="0" y="0" fill="#374151" fontSize="14" fontWeight="bold">
+                            Configuration: {cols}×{rows} PCB | Orientation: {orientation}°
+                        </text>
+                        <text x="0" y="20" fill="#4b5563" fontSize="12">
+                            PCB: {pcbW}×{pcbH}mm | Entraxe: {space}mm | Cadre: {frame}mm
+                        </text>
+                    </g>
+                </svg>
+            );
+        };
+
+        const PanelVisualization = ({ config, panelFormat, frameMargin, spacing, onClick, scale: customScale, showLabels = false }) => {
+            if (!config) return null;
+
+            const margin = parseFloat(frameMargin) || DEFAULT_VALUES.frameMargin;
+            const space = parseFloat(spacing) || DEFAULT_VALUES.spacing;
+
+            const scale = customScale || Math.min(420 / panelFormat.width, 320 / panelFormat.height);
+            const scaledPanelW = panelFormat.width * scale;
+            const scaledPanelH = panelFormat.height * scale;
+            const scaledMargin = margin * scale;
+
+            const pcbs = [];
+            const labels = [];
+
+            if (config.isPanoplie) {
+                const colors = [
+                    { fill: 'fill-emerald-500', stroke: 'stroke-emerald-700' },
+                    { fill: 'fill-blue-500', stroke: 'stroke-blue-700' },
+                    { fill: 'fill-purple-500', stroke: 'stroke-purple-700' },
+                    { fill: 'fill-pink-500', stroke: 'stroke-pink-700' },
+                    { fill: 'fill-amber-500', stroke: 'stroke-amber-700' },
+                    { fill: 'fill-cyan-500', stroke: 'stroke-cyan-700' },
+                ];
+
+                if (config.panoplieFramesData) {
+                    config.panoplieFramesData.forEach((frame, index) => {
+                        const x = scaledMargin + frame.x * scale;
+                        const y = scaledMargin + frame.y * scale;
+                        const w = frame.w * scale;
+                        const h = frame.h * scale;
+                        
+                        pcbs.push(
+                            <rect
+                                key={`frame-${index}`}
+                                x={x}
+                                y={y}
+                                width={w}
+                                height={h}
+                                className="fill-none stroke-gray-400 stroke-2 stroke-dashed"
+                                rx="4"
+                            />
+                        );
+
+                        if (showLabels) {
+                            labels.push(
+                                <text
+                                    key={`label-${index}`}
+                                    x={x + w / 2}
+                                    y={y + h / 2}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    className="fill-white text-lg font-bold drop-shadow-lg"
+                                    style={{ 
+                                        pointerEvents: 'none',
+                                        textShadow: '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 2px rgba(0,0,0,0.8), 1px -1px 2px rgba(0,0,0,0.8), -1px 1px 2px rgba(0,0,0,0.8)'
+                                    }}
+                                >
+                                    P{index + 1}
+                                </text>
+                            );
+                        }
+                    });
+                }
+
+                config.allPcbs.forEach((pcb, idx) => {
+                    const x = scaledMargin + pcb.x * scale;
+                    const y = scaledMargin + pcb.y * scale;
+                    const w = pcb.w * scale;
+                    const h = pcb.h * scale;
+                    const colorSet = colors[pcb.panoplieIndex % colors.length];
+                    
+                    pcbs.push(
+                        <rect
+                            key={`pcb-${idx}`}
+                            x={x}
+                            y={y}
+                            width={w}
+                            height={h}
+                            className={`${colorSet.fill} ${colorSet.stroke} stroke-1 transition-all duration-300 hover:opacity-80`}
+                            rx="2"
+                        />
+                    );
+                });
+            } else {
+                for (let row = 0; row < config.primaryRows; row++) {
+                    for (let col = 0; col < config.primaryCols; col++) {
+                        const x = scaledMargin + col * (config.primaryW + space) * scale;
+                        const y = scaledMargin + row * (config.primaryH + space) * scale;
+                        const w = config.primaryW * scale;
+                        const h = config.primaryH * scale;
+                        pcbs.push(
+                            <rect
+                                key={`primary-${row}-${col}`}
+                                x={x}
+                                y={y}
+                                width={w}
+                                height={h}
+                                className="fill-emerald-500 stroke-emerald-700 stroke-1 transition-all duration-300 hover:fill-emerald-400"
+                                rx="2"
+                            />
+                        );
+                    }
+                }
+
+                config.secondaryPcbs.forEach((pcb, idx) => {
+                    const x = scaledMargin + pcb.x * scale;
+                    const y = scaledMargin + pcb.y * scale;
+                    const w = pcb.w * scale;
+                    const h = pcb.h * scale;
+                    pcbs.push(
+                        <rect
+                            key={`secondary-${idx}`}
+                            x={x}
+                            y={y}
+                            width={w}
+                            height={h}
+                            className="fill-purple-500 stroke-purple-700 stroke-1 transition-all duration-300 hover:fill-purple-400"
+                            rx="2"
+                        />
+                    );
+                });
+            }
+
+            return (
+                <svg
+                    width={scaledPanelW}
+                    height={scaledPanelH}
+                    className="mx-auto border-2 border-gray-200 rounded-lg shadow-inner bg-gradient-to-br from-gray-50 to-gray-100 cursor-pointer hover:border-blue-400 transition-all"
+                    onClick={onClick}
+                >
+                    <rect
+                        x="0"
+                        y="0"
+                        width={scaledPanelW}
+                        height={scaledPanelH}
+                        className="fill-amber-100/40 stroke-amber-400 stroke-2"
+                        rx="4"
+                    />
+                    <rect
+                        x={scaledMargin}
+                        y={scaledMargin}
+                        width={scaledPanelW - 2 * scaledMargin}
+                        height={scaledPanelH - 2 * scaledMargin}
+                        className="fill-none stroke-amber-500 stroke-1 stroke-dashed"
+                    />
+                    {pcbs}
+                    {labels}
+                </svg>
+            );
+        };
+
+        const PCBPanelCalculator = () => {
+            const [panelFormat, setPanelFormat] = useState(STANDARD_FORMATS[0]);
+            const [pcbWidth, setPcbWidth] = useState('80');
+            const [pcbHeight, setPcbHeight] = useState('70');
+            const [frameMargin, setFrameMargin] = useState('15');
+            const [spacing, setSpacing] = useState('5');
+            const [customSpacing, setCustomSpacing] = useState('');
+            const [showCustomSpacing, setShowCustomSpacing] = useState(false);
+            const [enableMixedMode, setEnableMixedMode] = useState(true);
+            const [showCustomPanel, setShowCustomPanel] = useState(false);
+            const [customWidth, setCustomWidth] = useState('');
+            const [customHeight, setCustomHeight] = useState('');
+            const [showModal, setShowModal] = useState(false);
+            const [showPanoplieModal, setShowPanoplieModal] = useState(false);
+            
+            const [panoplieMode, setPanoplieMode] = useState(false);
+            const [panoplieCols, setPanoplieCols] = useState('2');
+            const [panoplieRows, setPanoplieRows] = useState('3');
+            const [panoplieOrientation, setPanoplieOrientation] = useState(0);
+            const [panoplieFrameMargin, setPanoplieFrameMargin] = useState('8');
+            const [panoplieEntraxe, setPanoplieEntraxe] = useState('5');
+
+            const [showLabels, setShowLabels] = useState(false);
+            const panoplieSvgRef = React.useRef(null);
+
+            useEffect(() => {
+                if (panoplieMode) {
+                    setSpacing('2');
+                } else {
+                    setSpacing('5');
+                }
+            }, [panoplieMode]);
+
+            const calculateResult = useMemo(() => {
+                if (panoplieMode) {
+                    const cols = parseInt(panoplieCols) || 1;
+                    const rows = parseInt(panoplieRows) || 1;
+                    const pcbW = parseFloat(pcbWidth) || DEFAULT_VALUES.pcbWidth;
+                    const pcbH = parseFloat(pcbHeight) || DEFAULT_VALUES.pcbHeight;
+                    const margin = parseFloat(frameMargin) || DEFAULT_VALUES.frameMargin;
+                    const space = parseFloat(spacing) || DEFAULT_VALUES.panoplieSpacing;
+                    const panoplieFrame = parseFloat(panoplieFrameMargin) || DEFAULT_VALUES.panoplieFrameMargin;
+                    const panoplieSpace = parseFloat(panoplieEntraxe) || DEFAULT_VALUES.panoplieEntraxe;
+                    
+                    const availableWidth = panelFormat.width - (2 * margin);
+                    const availableHeight = panelFormat.height - (2 * margin);
+
+                    const config = calculatePanoplieOptimization(
+                        cols, rows, panoplieOrientation,
+                        pcbW, pcbH, space, panoplieFrame, panoplieSpace,
+                        availableWidth, availableHeight, enableMixedMode
+                    );
+
+                    return {
+                        best: config,
+                        allConfigs: [config],
+                        availableWidth,
+                        availableHeight
+                    };
+                } else {
+                    return calculateAllConfigurations(
+                        panelFormat,
+                        pcbWidth,
+                        pcbHeight,
+                        frameMargin,
+                        spacing,
+                        enableMixedMode
+                    );
+                }
+            }, [panelFormat, pcbWidth, pcbHeight, frameMargin, spacing, enableMixedMode, panoplieMode, panoplieCols, panoplieRows, panoplieOrientation, panoplieFrameMargin, panoplieEntraxe]);
+
+            const addCustomFormat = () => {
+                const w = parseFloat(customWidth);
+                const h = parseFloat(customHeight);
+                if (w > 0 && h > 0) {
+                    setPanelFormat({ name: `${w}x${h}mm`, width: w, height: h, category: 'PERSONNALISÉ' });
+                    setShowCustomPanel(false);
+                    setCustomWidth('');
+                    setCustomHeight('');
+                }
+            };
+
+            const setPresetSpacing = (value) => {
+                setSpacing(value.toString());
+                setShowCustomSpacing(false);
+                setCustomSpacing('');
+            };
+
+            const applyCustomSpacing = () => {
+                const value = parseFloat(customSpacing);
+                if (value > 0) {
+                    setSpacing(value.toString());
+                    setShowCustomSpacing(false);
+                }
+            };
+
+            const exportAsImage = () => {
+                alert('Export d\'image à venir ! 📸');
+            };
+
+            const exportPanopliePNG = () => {
+                if (!panoplieSvgRef.current) return;
+                
+                const svgElement = panoplieSvgRef.current;
+                const svgString = new XMLSerializer().serializeToString(svgElement);
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                
+                const svgWidth = svgElement.width.baseVal.value;
+                const svgHeight = svgElement.height.baseVal.value;
+                
+                canvas.width = svgWidth * 3;
+                canvas.height = svgHeight * 3;
+                
+                img.onload = () => {
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    canvas.toBlob((blob) => {
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `panoplie_${panoplieCols}x${panoplieRows}_${pcbWidth}x${pcbHeight}mm.png`;
+                        link.click();
+                        URL.revokeObjectURL(url);
+                    }, 'image/png', 1.0);
+                };
+                
+                img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+            };
+
+            const doubleFaceFormats = STANDARD_FORMATS.filter(f => f.category === 'DOUBLE FACE');
+            const multicouchesFormats = STANDARD_FORMATS.filter(f => f.category === 'MULTICOUCHES');
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-3">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg">
+                                    <Icon name="Calculator" className="w-6 h-6 text-white" />
+                                </div>
+                                <div>
+                                    <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                                        Panélisation | William-Dew
+                                    </h1>
+                                    <p className="text-xs text-gray-600">Optimisation PCB</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <Tooltip text="Exporter l'image">
+                                    <button
+                                        onClick={exportAsImage}
+                                        className="p-2 bg-white rounded-lg shadow hover:shadow-md transition-all"
+                                    >
+                                        <Icon name="Download" className="w-5 h-5 text-green-600" />
+                                    </button>
+                                </Tooltip>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                            <div className="space-y-3">
+                                <div className="bg-white rounded-xl shadow-lg p-4 section-card">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Icon name="Settings" className="w-4 h-4 text-indigo-600" />
+                                        <h2 className="text-base font-semibold text-gray-800">Mode de Calcul</h2>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 mb-3">
+                                        <button
+                                            onClick={() => setPanoplieMode(false)}
+                                            className={`px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                                !panoplieMode
+                                                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md scale-105'
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            <div className="flex flex-col items-center gap-1">
+                                                <Icon name="CircuitBoard" className="w-5 h-5" />
+                                                <span>Unitaire</span>
+                                            </div>
+                                        </button>
+                                        <button
+                                            onClick={() => setPanoplieMode(true)}
+                                            className={`px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                                panoplieMode
+                                                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md scale-105'
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            <div className="flex flex-col items-center gap-1">
+                                                <Icon name="Grid3x3" className="w-5 h-5" />
+                                                <span>Panoplie</span>
+                                            </div>
+                                        </button>
+                                    </div>
+                                    <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded-lg mb-3">
+                                        {panoplieMode 
+                                            ? "🎯 Mode panoplie : définissez une configuration et optimisez son placement"
+                                            : "⚡ Mode optimisation : calcul automatique de la meilleure disposition"
+                                        }
+                                    </div>
+                                    <div className="border-t border-gray-200 pt-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Icon name="RotateCw" className="w-4 h-4 text-purple-600" />
+                                                <div>
+                                                    <h3 className="text-sm font-semibold text-gray-800">Mode Mixte</h3>
+                                                    <p className="text-xs text-gray-500">
+                                                        {panoplieMode 
+                                                            ? "Optimise le placement des panoplies"
+                                                            : "Orientations combinées pour maximiser"
+                                                        }
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => setEnableMixedMode(!enableMixedMode)}
+                                                className={`relative w-14 h-7 rounded-full transition-colors duration-200 ${
+                                                    enableMixedMode ? 'bg-green-500' : 'bg-gray-300'
+                                                }`}
+                                            >
+                                                <span
+                                                    className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform duration-200 shadow ${
+                                                        enableMixedMode ? 'transform translate-x-7' : ''
+                                                    }`}
+                                                />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-xl shadow-lg p-4 section-card">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Icon name="Maximize2" className="w-4 h-4 text-blue-600" />
+                                        <h2 className="text-base font-semibold text-gray-800">Format du Panneau</h2>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div>
+                                            <div className="text-xs font-semibold text-gray-600 mb-1">DOUBLE FACE</div>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {doubleFaceFormats.map((format) => (
+                                                    <button
+                                                        key={format.name}
+                                                        onClick={() => setPanelFormat(format)}
+                                                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                                            panelFormat.name === format.name
+                                                                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md scale-105'
+                                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                        }`}
+                                                    >
+                                                        {format.width}×{format.height}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs font-semibold text-gray-600 mb-1">MULTICOUCHES</div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {multicouchesFormats.map((format) => (
+                                                    <button
+                                                        key={format.name}
+                                                        onClick={() => setPanelFormat(format)}
+                                                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                                            panelFormat.name === format.name
+                                                                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md scale-105'
+                                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                        }`}
+                                                    >
+                                                        {format.width}×{format.height}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowCustomPanel(!showCustomPanel)}
+                                            className="w-full px-3 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 transition-all duration-200"
+                                        >
+                                            ✨ Format personnalisé
+                                        </button>
+                                        {showCustomPanel && (
+                                            <div className="flex gap-2 slide-in">
+                                                <input
+                                                    type="number"
+                                                    placeholder="Largeur"
+                                                    value={customWidth}
+                                                    onChange={(e) => setCustomWidth(e.target.value)}
+                                                    className="flex-1 px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Hauteur"
+                                                    value={customHeight}
+                                                    onChange={(e) => setCustomHeight(e.target.value)}
+                                                    className="flex-1 px-3 py-2 text-sm border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                                                />
+                                                <button
+                                                    onClick={addCustomFormat}
+                                                    className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600"
+                                                >
+                                                    ✓
+                                                </button>
+                                            </div>
+                                        )}
+                                        <div className="text-xs text-gray-600 bg-blue-50 p-2 rounded-lg border border-blue-200">
+                                            <span className="font-semibold text-blue-700">{panelFormat.category}</span>
+                                            {' - '}
+                                            <span className="font-semibold text-blue-700">{panelFormat.width} × {panelFormat.height} mm</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-xl shadow-lg p-4 section-card">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Icon name="Grid3x3" className="w-4 h-4 text-emerald-600" />
+                                        <h2 className="text-base font-semibold text-gray-800">Dimensions PCB</h2>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Largeur (mm)</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                step="0.1"
+                                                value={pcbWidth}
+                                                onChange={(e) => setPcbWidth(e.target.value)}
+                                                className="w-full px-3 py-2 border-2 border-emerald-200 rounded-lg focus:border-emerald-500 focus:outline-none text-sm font-semibold text-emerald-700 transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Hauteur (mm)</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                step="0.1"
+                                                value={pcbHeight}
+                                                onChange={(e) => setPcbHeight(e.target.value)}
+                                                className="w-full px-3 py-2 border-2 border-emerald-200 rounded-lg focus:border-emerald-500 focus:outline-none text-sm font-semibold text-emerald-700 transition-all"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {panoplieMode && (
+                                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl shadow-lg p-4 border-2 border-purple-200 section-card slide-in">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Icon name="LayoutGrid" className="w-4 h-4 text-purple-600" />
+                                            <h2 className="text-base font-semibold text-gray-800">Configuration Panoplie</h2>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-700 mb-1">Colonnes</label>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        value={panoplieCols}
+                                                        onChange={(e) => setPanoplieCols(e.target.value)}
+                                                        className="w-full px-3 py-2 border-2 border-purple-200 rounded-lg focus:border-purple-500 focus:outline-none text-sm font-semibold text-purple-700"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-700 mb-1">Rangées</label>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        value={panoplieRows}
+                                                        onChange={(e) => setPanoplieRows(e.target.value)}
+                                                        className="w-full px-3 py-2 border-2 border-purple-200 rounded-lg focus:border-purple-500 focus:outline-none text-sm font-semibold text-purple-700"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                        Cadre panoplie (mm)
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.5"
+                                                        value={panoplieFrameMargin}
+                                                        onChange={(e) => setPanoplieFrameMargin(e.target.value)}
+                                                        className="w-full px-3 py-2 border-2 border-purple-200 rounded-lg focus:border-purple-500 focus:outline-none text-sm font-semibold text-purple-700"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                        Entraxe entre les panoplies (mm)
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.5"
+                                                        value={panoplieEntraxe}
+                                                        onChange={(e) => setPanoplieEntraxe(e.target.value)}
+                                                        className="w-full px-3 py-2 border-2 border-purple-200 rounded-lg focus:border-purple-500 focus:outline-none text-sm font-semibold text-purple-700"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-2">Orientation</label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button
+                                                        onClick={() => setPanoplieOrientation(0)}
+                                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                                            panoplieOrientation === 0
+                                                                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
+                                                                : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-purple-200'
+                                                        }`}
+                                                    >
+                                                        0°
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setPanoplieOrientation(90)}
+                                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                                            panoplieOrientation === 90
+                                                                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md'
+                                                                : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-purple-200'
+                                                        }`}
+                                                    >
+                                                        90°
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="bg-purple-100 p-2 rounded-lg text-xs text-purple-800 flex items-center justify-between">
+                                                <strong>PCB par panoplie:</strong>
+                                                <span className="text-lg font-bold">{parseInt(panoplieCols) * parseInt(panoplieRows)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="bg-white rounded-xl shadow-lg p-4 section-card">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Icon name="Move" className="w-4 h-4 text-amber-600" />
+                                        <h2 className="text-base font-semibold text-gray-800">Marges & Entraxe</h2>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                                                Cadre panneau de production (mm)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.5"
+                                                value={frameMargin}
+                                                onChange={(e) => setFrameMargin(e.target.value)}
+                                                className="w-full px-3 py-2 border-2 border-amber-200 rounded-lg focus:border-amber-500 focus:outline-none text-sm font-semibold text-amber-700 transition-all"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-2">
+                                                Entraxe entre les PCB (mm)
+                                            </label>
+                                            <div className="grid grid-cols-4 gap-2 mb-2">
+                                                {PRESET_SPACINGS.map((preset) => (
+                                                    <button
+                                                        key={preset.value}
+                                                        onClick={() => setPresetSpacing(preset.value)}
+                                                        className={`px-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                                            parseFloat(spacing) === preset.value && !showCustomSpacing
+                                                                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
+                                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                        }`}
+                                                    >
+                                                        {preset.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <button
+                                                onClick={() => setShowCustomSpacing(!showCustomSpacing)}
+                                                className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                                    showCustomSpacing
+                                                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+                                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                }`}
+                                            >
+                                                ✏️ Autre
+                                            </button>
+                                            {showCustomSpacing && (
+                                                <div className="flex gap-2 mt-2 slide-in">
+                                                    <input
+                                                        type="number"
+                                                        placeholder="Ex: 7.5"
+                                                        min="0"
+                                                        step="0.1"
+                                                        value={customSpacing}
+                                                        onChange={(e) => setCustomSpacing(e.target.value)}
+                                                        className="flex-1 px-3 py-2 text-sm border-2 border-blue-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                                                    />
+                                                    <button
+                                                        onClick={applyCustomSpacing}
+                                                        className="px-4 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600"
+                                                    >
+                                                        ✓
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {spacing && (
+                                                <div className="mt-2 text-center text-xs font-semibold text-blue-700 bg-blue-50 p-2 rounded-lg">
+                                                    ✓ Entraxe PCB actuel : {spacing}mm
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className={`rounded-xl shadow-xl p-4 text-white section-card ${
+                                    panoplieMode 
+                                        ? 'bg-gradient-to-br from-purple-500 to-pink-600' 
+                                        : 'bg-gradient-to-br from-green-500 to-emerald-600'
+                                }`}>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h2 className="text-xl font-bold">
+                                            {panoplieMode ? '🎯 Panélisation Panoplie' : '⚡ Configuration Optimale'}
+                                        </h2>
+                                        <Icon name={panoplieMode ? "LayoutGrid" : "TrendingUp"} className="w-6 h-6" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        {panoplieMode && (
+                                            <>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-purple-100 text-sm">Panoplies principales:</span>
+                                                    <span className="text-2xl font-bold">
+                                                        {calculateResult.best.totalPanopliesPrimary}
+                                                        <span className="text-sm ml-1">
+                                                            ({calculateResult.best.panopliesPerRow}×{calculateResult.best.panopliesPerCol})
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                                {enableMixedMode && calculateResult.best.secondaryPanoplies > 0 && (
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-purple-100 text-sm">Panoplies pivotées:</span>
+                                                        <span className="text-xl font-bold text-pink-200">
+                                                            {calculateResult.best.secondaryPanoplies}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-purple-100 text-sm">PCB par panoplie:</span>
+                                                    <span className="text-xl font-bold">
+                                                        {calculateResult.best.pcbsPerPanoplie}
+                                                        <span className="text-sm ml-1">
+                                                            ({panoplieCols}×{panoplieRows})
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                                <div className="h-px bg-white/30 my-1"></div>
+                                            </>
+                                        )}
+                                        {!panoplieMode && (
+                                            <>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-green-100 text-sm">Orientation principale:</span>
+                                                    <span className="text-2xl font-bold">{calculateResult.best.primaryOrientation}°</span>
+                                                </div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-green-100 text-sm">PCB principaux:</span>
+                                                    <span className="text-xl font-bold">
+                                                        {calculateResult.best.primaryCount} 
+                                                        <span className="text-sm ml-1">({calculateResult.best.primaryCols}×{calculateResult.best.primaryRows})</span>
+                                                    </span>
+                                                </div>
+                                                {enableMixedMode && calculateResult.best.secondaryCount > 0 && (
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-green-100 text-sm">PCB pivotés:</span>
+                                                        <span className="text-xl font-bold text-purple-200">
+                                                            {calculateResult.best.secondaryCount}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                <div className="h-px bg-white/30 my-1"></div>
+                                            </>
+                                        )}
+                                        <div className="flex justify-between items-center bg-white/10 rounded-lg p-2">
+                                            <span className={panoplieMode ? 'text-purple-100 font-semibold' : 'text-green-100 font-semibold'}>
+                                                🎯 Total PCB:
+                                            </span>
+                                            <span className="text-3xl font-bold">{calculateResult.best.totalCount}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className={panoplieMode ? 'text-purple-100 text-sm' : 'text-green-100 text-sm'}>
+                                                📊 Taux d'utilisation:
+                                            </span>
+                                            <span className="text-xl font-bold">
+                                                {calculateResult.best.utilization.toFixed(1)}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-xl shadow-lg p-4 section-card">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-sm font-semibold text-gray-800">
+                                            👁️ Aperçu de la Configuration
+                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => setShowLabels(!showLabels)}
+                                                className={`p-1 rounded transition-all ${showLabels ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                            >
+                                                <Icon name="Tag" className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-center mb-3">
+                                        <PanelVisualization 
+                                            config={calculateResult.best}
+                                            panelFormat={panelFormat}
+                                            frameMargin={frameMargin}
+                                            spacing={spacing}
+                                            onClick={() => setShowModal(true)}
+                                            showLabels={showLabels}
+                                        />
+                                    </div>
+                                    {panoplieMode && (
+                                        <div className="mb-3 bg-purple-50 p-3 rounded-lg text-xs text-purple-800 border border-purple-200">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="font-semibold flex items-center gap-1">
+                                                    <Icon name="Info" className="w-3 h-3" />
+                                                    Détails panoplie:
+                                                </div>
+                                                <button
+                                                    onClick={() => setShowPanoplieModal(true)}
+                                                    className="px-3 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all text-xs font-semibold flex items-center gap-1"
+                                                >
+                                                    <Icon name="Ruler" className="w-3 h-3" />
+                                                    Flan avec cotations
+                                                </button>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>📦 Total panoplies: <strong>{calculateResult.best.totalPanoplies}</strong></div>
+                                                {enableMixedMode && calculateResult.best.secondaryPanoplies > 0 && (
+                                                    <div>🔄 Panoplies pivotées: <strong>{calculateResult.best.secondaryPanoplies}</strong></div>
+                                                )}
+                                                <div>📐 Taille principale: {calculateResult.best.panoplieWidth.toFixed(1)}×{calculateResult.best.panoplieHeight.toFixed(1)}mm</div>
+                                                <div>🎨 Cadre: {parseFloat(panoplieFrameMargin) || 8}mm</div>
+                                                <div>📏 Entraxe PCB: {parseFloat(spacing) || 2}mm</div>
+                                                <div>↔️ Entraxe panoplies: {parseFloat(panoplieEntraxe) || 5}mm</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {showModal && (
+                        <div 
+                            className="fixed inset-0 bg-black/60 modal-backdrop flex items-center justify-center z-50 p-4"
+                            onClick={() => setShowModal(false)}
+                        >
+                            <div 
+                                className="bg-white rounded-2xl p-6 max-w-6xl max-h-[90vh] overflow-auto relative slide-in"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-2xl font-bold text-gray-800">🔍 Visualisation détaillée</h2>
+                                    <button
+                                        onClick={() => setShowModal(false)}
+                                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                    >
+                                        <Icon name="X" className="w-6 h-6" />
+                                    </button>
+                                </div>
+                                <div className="flex justify-center">
+                                    <PanelVisualization 
+                                        config={calculateResult.best}
+                                        panelFormat={panelFormat}
+                                        frameMargin={frameMargin}
+                                        spacing={spacing}
+                                        scale={Math.min(1000 / panelFormat.width, 700 / panelFormat.height)}
+                                        showLabels={showLabels}
+                                    />
+                                </div>
+                                <div className="mt-4 text-center text-gray-600 text-sm">
+                                    💡 Cliquez en dehors ou sur ✕ pour fermer
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {showPanoplieModal && (
+                        <div 
+                            className="fixed inset-0 bg-black/60 modal-backdrop flex items-center justify-center z-50 p-4"
+                            onClick={() => setShowPanoplieModal(false)}
+                        >
+                            <div 
+                                className="bg-white rounded-2xl p-6 max-w-7xl max-h-[95vh] overflow-auto relative slide-in"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-gray-800">📐 Panoplie avec cotations</h2>
+                                        <p className="text-sm text-gray-600">Vue détaillée d'une panoplie individuelle</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={exportPanopliePNG}
+                                            className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg flex items-center gap-2 font-semibold"
+                                        >
+                                            <Icon name="Download" className="w-5 h-5" />
+                                            Télécharger PNG
+                                        </button>
+                                        <button
+                                            onClick={() => setShowPanoplieModal(false)}
+                                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                        >
+                                            <Icon name="X" className="w-6 h-6" />
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex justify-center">
+                                    <PanoplieVisualization
+                                        panoplieCols={panoplieCols}
+                                        panoplieRows={panoplieRows}
+                                        pcbWidth={pcbWidth}
+                                        pcbHeight={pcbHeight}
+                                        spacing={spacing}
+                                        panoplieFrameMargin={panoplieFrameMargin}
+                                        orientation={panoplieOrientation}
+                                        svgRef={panoplieSvgRef}
+                                    />
+                                </div>
+                                <div className="mt-4 text-center space-y-2">
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<PCBPanelCalculator />);
+    </script>
+</body>
+</html>
