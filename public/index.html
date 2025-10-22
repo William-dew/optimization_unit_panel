@@ -106,6 +106,7 @@
         ];
 
         const PRESET_SPACINGS = [
+            { value: 0, label: '0mm' },
             { value: 2, label: '2mm' },
             { value: 5, label: '5mm' },
             { value: 10, label: '10mm' },
@@ -495,8 +496,10 @@
         ) => {
             const pcbW = parseFloat(pcbWidth) || DEFAULT_VALUES.pcbWidth;
             const pcbH = parseFloat(pcbHeight) || DEFAULT_VALUES.pcbHeight;
-            const margin = parseFloat(frameMargin) || DEFAULT_VALUES.frameMargin;
-            const space = parseFloat(spacing) || DEFAULT_VALUES.spacing;
+            const parsedMargin = parseFloat(frameMargin);
+                const margin = isNaN(parsedMargin) ? DEFAULT_VALUES.frameMargin : parsedMargin;
+            const parsedSpace = parseFloat(spacing);
+                const space = isNaN(parsedSpace) ? DEFAULT_VALUES.spacing : parsedSpace;
             
             const availableWidth = panelFormat.width - (2 * margin);
             const availableHeight = panelFormat.height - (2 * margin);
@@ -586,8 +589,10 @@
             const rows = parseInt(panoplieRows) || 3;
             const pcbW = parseFloat(pcbWidth) || 80;
             const pcbH = parseFloat(pcbHeight) || 70;
-            const space = parseFloat(spacing) || 2;
-            const frame = parseFloat(panoplieFrameMargin) || 8;
+            const parsedSpace = parseFloat(spacing);
+            const space = isNaN(parsedSpace) ? 2 : parsedSpace;
+            const parsedFrame = parseFloat(panoplieFrameMargin);
+            const frame = isNaN(parsedFrame) ? 8 : parsedFrame;
             
             const isOrientation0 = orientation === 0;
             const pcbWidthUsed = isOrientation0 ? pcbW : pcbH;
@@ -809,8 +814,10 @@
         const PanelVisualization = ({ config, panelFormat, frameMargin, spacing, onClick, scale: customScale, showLabels = false }) => {
             if (!config) return null;
 
-            const margin = parseFloat(frameMargin) || DEFAULT_VALUES.frameMargin;
-            const space = parseFloat(spacing) || DEFAULT_VALUES.spacing;
+            const parsedMargin = parseFloat(frameMargin);
+                const margin = isNaN(parsedMargin) ? DEFAULT_VALUES.frameMargin : parsedMargin;
+            const parsedSpace = parseFloat(spacing);
+                const space = isNaN(parsedSpace) ? DEFAULT_VALUES.spacing : parsedSpace;
 
             const scale = customScale || Math.min(420 / panelFormat.width, 320 / panelFormat.height);
             const scaledPanelW = panelFormat.width * scale;
@@ -996,10 +1003,14 @@
                     const rows = parseInt(panoplieRows) || 1;
                     const pcbW = parseFloat(pcbWidth) || DEFAULT_VALUES.pcbWidth;
                     const pcbH = parseFloat(pcbHeight) || DEFAULT_VALUES.pcbHeight;
-                    const margin = parseFloat(frameMargin) || DEFAULT_VALUES.frameMargin;
-                    const space = parseFloat(spacing) || DEFAULT_VALUES.panoplieSpacing;
-                    const panoplieFrame = parseFloat(panoplieFrameMargin) || DEFAULT_VALUES.panoplieFrameMargin;
-                    const panoplieSpace = parseFloat(panoplieEntraxe) || DEFAULT_VALUES.panoplieEntraxe;
+                    const parsedMargin = parseFloat(frameMargin);
+                    const margin = isNaN(parsedMargin) ? DEFAULT_VALUES.frameMargin : parsedMargin;
+                    const parsedSpace = parseFloat(spacing);
+                    const space = isNaN(parsedSpace) ? DEFAULT_VALUES.panoplieSpacing : parsedSpace;
+                    const parsedPanoplieFrame = parseFloat(panoplieFrameMargin);
+                    const panoplieFrame = isNaN(parsedPanoplieFrame) ? DEFAULT_VALUES.panoplieFrameMargin : parsedPanoplieFrame;
+                    const parsedPanoplieSpace = parseFloat(panoplieEntraxe);
+                    const panoplieSpace = isNaN(parsedPanoplieSpace) ? DEFAULT_VALUES.panoplieEntraxe : parsedPanoplieSpace;
                     
                     const availableWidth = panelFormat.width - (2 * margin);
                     const availableHeight = panelFormat.height - (2 * margin);
@@ -1047,7 +1058,7 @@
 
             const applyCustomSpacing = () => {
                 const value = parseFloat(customSpacing);
-                if (value > 0) {
+                if (value >= 0) {
                     setSpacing(value.toString());
                     setShowCustomSpacing(false);
                 }
@@ -1415,7 +1426,7 @@
                                             <label className="block text-xs font-medium text-gray-700 mb-2">
                                                 Entraxe entre les PCB (mm)
                                             </label>
-                                            <div className="grid grid-cols-4 gap-2 mb-2">
+                                            <div className="grid grid-cols-5 gap-2 mb-2">
                                                 {PRESET_SPACINGS.map((preset) => (
                                                     <button
                                                         key={preset.value}
@@ -1599,9 +1610,9 @@
                                                     <div>🔄 Panoplies pivotées: <strong>{calculateResult.best.secondaryPanoplies}</strong></div>
                                                 )}
                                                 <div>📐 Taille principale: {calculateResult.best.panoplieWidth.toFixed(1)}×{calculateResult.best.panoplieHeight.toFixed(1)}mm</div>
-                                                <div>🎨 Cadre: {parseFloat(panoplieFrameMargin) || 8}mm</div>
-                                                <div>📏 Entraxe PCB: {parseFloat(spacing) || 2}mm</div>
-                                                <div>↔️ Entraxe panoplies: {parseFloat(panoplieEntraxe) || 5}mm</div>
+                                                <div>🎨 Cadre: {(() => { const p = parseFloat(panoplieFrameMargin); return isNaN(p) ? 8 : p; })()}mm</div>
+                                                <div>📏 Entraxe PCB: {(() => { const p = parseFloat(spacing); return isNaN(p) ? 2 : p; })()}mm</div>
+                                                <div>↔️ Entraxe panoplies: {(() => { const p = parseFloat(panoplieEntraxe); return isNaN(p) ? 5 : p; })()}mm</div>
                                             </div>
                                         </div>
                                     )}
