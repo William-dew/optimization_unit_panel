@@ -1,0 +1,181 @@
+═══════════════════════════════════════════════════════════════
+  GUIDE DE COMPILATION - Panelisation William-DEW (Tauri)
+═══════════════════════════════════════════════════════════════
+
+📋 PRÉREQUIS (à installer une seule fois)
+═══════════════════════════════════════════════════════════════
+
+1. Node.js
+   - Télécharger : https://nodejs.org/
+   - Vérifier : npm --version
+
+2. Rust
+   - Télécharger : https://rustup.rs/
+   - Lancer rustup-init.exe
+   - Appuyer sur Entrée pour installation par défaut
+   - Redémarrer le terminal après installation
+   - Vérifier : cargo --version
+
+3. Microsoft Visual Studio C++ Build Tools
+   - Télécharger : https://visualstudio.microsoft.com/visual-cpp-build-tools/
+   - Installer "Desktop development with C++"
+   - Installer Windows 10/11 SDK
+
+4. WebView2 (normalement déjà présent sur Windows 10/11)
+   - Si nécessaire : https://developer.microsoft.com/microsoft-edge/webview2/
+
+
+═══════════════════════════════════════════════════════════════
+  STRUCTURE DU PROJET
+═══════════════════════════════════════════════════════════════
+
+optimization_unit_panel/
+├── public/              ← Vos fichiers HTML/CSS/JS
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+├── src-tauri/           ← Configuration Tauri
+│   ├── tauri.conf.json  ← Configuration principale
+│   ├── Cargo.toml
+│   └── src/
+├── node_modules/
+└── package.json
+
+
+═══════════════════════════════════════════════════════════════
+  ÉTAPES DE COMPILATION
+═══════════════════════════════════════════════════════════════
+
+1. OUVRIR POWERSHELL / CMD
+   - Aller dans le dossier du projet :
+     cd C:\Users\willi\Desktop\optimization_unit_panel
+
+2. INSTALLER LES DÉPENDANCES (première fois uniquement)
+   npm install
+
+3. COMPILER L'APPLICATION
+
+   Option A - Mode développement (pour tester) :
+   ───────────────────────────────────────────────
+   npx tauri dev
+   
+   → Ouvre une fenêtre de l'application
+   → Les modifications se rechargent automatiquement
+   → Fermer la fenêtre pour arrêter
+
+   Option B - Compilation finale (.exe) :
+   ───────────────────────────────────────────────
+   npx tauri build
+   
+   ⏱️  Durée : 5-10 minutes (première fois)
+   📦 Résultat : Fichier .exe prêt à distribuer
+
+
+═══════════════════════════════════════════════════════════════
+  LOCALISATION DES FICHIERS COMPILÉS
+═══════════════════════════════════════════════════════════════
+
+Fichier exécutable (.exe) :
+───────────────────────────
+📂 src-tauri\target\release\optimization_unit_panel.exe
+
+Installeur Windows (.msi) :
+───────────────────────────
+📂 src-tauri\target\release\bundle\msi\
+
+→ Ce fichier .exe peut être copié et distribué librement
+→ Il fonctionne de manière autonome (pas besoin d'installation)
+
+
+═══════════════════════════════════════════════════════════════
+  CONFIGURATION IMPORTANTE
+═══════════════════════════════════════════════════════════════
+
+Fichier : src-tauri\tauri.conf.json
+
+Points clés :
+- identifier : "com.williamdew.optimization-panel"
+- frontendDist : "../public"
+- Ces paramètres ne doivent PAS être modifiés
+
+
+═══════════════════════════════════════════════════════════════
+  PROBLÈMES COURANTS ET SOLUTIONS
+═══════════════════════════════════════════════════════════════
+
+❌ Erreur "cargo not found"
+   → Redémarrer le terminal après installation de Rust
+   → Ou redémarrer l'ordinateur
+
+❌ Erreur "bundle identifier"
+   → Vérifier que l'identifier dans tauri.conf.json est unique
+   → Ne doit PAS être "com.tauri.dev"
+
+❌ Erreur "frontendDist"
+   → Vérifier que tous les fichiers web sont dans /public
+   → Vérifier que tauri.conf.json pointe vers "../public"
+
+❌ La compilation est très longue
+   → C'est normal la première fois (5-10 min)
+   → Les compilations suivantes seront plus rapides (1-2 min)
+
+
+═══════════════════════════════════════════════════════════════
+  COMMANDES UTILES
+═══════════════════════════════════════════════════════════════
+
+Vérifier les versions installées :
+   node --version
+   npm --version
+   cargo --version
+   rustc --version
+
+Nettoyer le cache de compilation :
+   cd src-tauri
+   cargo clean
+   cd ..
+
+Mettre à jour Tauri :
+   npm update @tauri-apps/cli
+
+
+═══════════════════════════════════════════════════════════════
+  DISTRIBUTION
+═══════════════════════════════════════════════════════════════
+
+Pour distribuer votre application :
+
+1. Copier le fichier .exe depuis src-tauri\target\release\
+2. L'envoyer par email, clé USB, ou hébergement cloud
+3. L'utilisateur double-clique pour lancer l'application
+
+OU
+
+1. Utiliser le fichier .msi depuis src-tauri\target\release\bundle\msi\
+2. L'utilisateur lance l'installeur pour installer l'application
+
+
+═══════════════════════════════════════════════════════════════
+  NOTES SUPPLÉMENTAIRES
+═══════════════════════════════════════════════════════════════
+
+✅ Taille du fichier : environ 3-5 MB (très léger !)
+✅ Compatible : Windows 10 et Windows 11
+✅ Pas besoin d'installation pour le .exe
+✅ Fonctionne hors ligne
+
+📝 Pour modifier l'icône de l'application :
+   - Placer une icône .ico dans src-tauri/icons/
+   - Mettre à jour tauri.conf.json
+
+📝 Pour changer le nom de la fenêtre :
+   - Modifier "title" dans src-tauri/tauri.conf.json
+
+
+═══════════════════════════════════════════════════════════════
+  FIN DU GUIDE
+═══════════════════════════════════════════════════════════════
+
+Créé le : 22 octobre 2025
+Projet : Panelisation William-DEW
+Technologie : Tauri + HTML/CSS/JS
