@@ -10,6 +10,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
         .modal-backdrop {
             backdrop-filter: blur(8px);
@@ -106,7 +107,7 @@
         ];
 
         const PRESET_SPACINGS = [
-            { value: 0, label: '0mm' },
+            { value: 0, label: 'Panolplie V-cut' },
             { value: 2, label: '2mm' },
             { value: 5, label: '5mm' },
             { value: 10, label: '10mm' },
@@ -584,7 +585,137 @@
             };
         };
 
-        const PanoplieVisualization = ({ panoplieCols, panoplieRows, pcbWidth, pcbHeight, spacing, panoplieFrameMargin, orientation, svgRef }) => {
+        // Composant pour mire CMS (cible avec croix)
+        const CMSTarget = ({ x, y, scale, symbol, isRight = false }) => {
+            const size = 4 * scale; // Taille de la mire
+            const circleRadius = size * 1.2;
+            const crossSize = size * 1.8;
+            const symbolOffset = isRight ? -(circleRadius + 12) : (circleRadius + 12);
+            
+            return (
+                <g>
+                    {/* Cercle extérieur */}
+                    <circle cx={x} cy={y} r={circleRadius} fill="none" stroke="#ef4444" strokeWidth="2" />
+                    <circle cx={x} cy={y} r={circleRadius * 0.6} fill="none" stroke="#ef4444" strokeWidth="1.5" />
+                    <circle cx={x} cy={y} r={circleRadius * 0.3} fill="#ef4444" />
+                    
+                    {/* Croix */}
+                    <line x1={x - crossSize} y1={y} x2={x + crossSize} y2={y} stroke="#ef4444" strokeWidth="2" />
+                    <line x1={x} y1={y - crossSize} x2={x} y2={y + crossSize} stroke="#ef4444" strokeWidth="2" />
+                    
+                    {/* Symbole circulé à côté */}
+                    <circle cx={x + symbolOffset} cy={y} r="8" fill="white" stroke="#ef4444" strokeWidth="1.5" />
+                    <text 
+                        x={x + symbolOffset} 
+                        y={y} 
+                        textAnchor="middle" 
+                        dominantBaseline="middle"
+                        fill="#ef4444" 
+                        fontSize="11" 
+                        fontWeight="bold"
+                    >
+                        {symbol}
+                    </text>
+                </g>
+            );
+        };
+
+        // Composant pour trou de localisation
+        const LocatingHole = ({ x, y, scale, symbol, isRight = false }) => {
+            const diameter = 3.05;
+            const radius = (diameter / 2) * scale;
+            const symbolOffset = isRight ? -(radius + 8) : (radius + 8);
+            
+            return (
+                <g>
+                    {/* Trou */}
+                    <circle cx={x} cy={y} r={radius} fill="white" stroke="#2563eb" strokeWidth="2" />
+                    <circle cx={x} cy={y} r={radius * 0.5} fill="none" stroke="#2563eb" strokeWidth="1" strokeDasharray="2,2" />
+                    
+                    {/* Croix de centrage */}
+                    <line x1={x - radius * 1.5} y1={y} x2={x + radius * 1.5} y2={y} stroke="#2563eb" strokeWidth="1" />
+                    <line x1={x} y1={y - radius * 1.5} x2={x} y2={y + radius * 1.5} stroke="#2563eb" strokeWidth="1" />
+                    
+                    {/* Symbole carré à côté */}
+                    <rect x={x + symbolOffset - 7} y={y - 7} width="14" height="14" fill="white" stroke="#2563eb" strokeWidth="1.5" rx="2" />
+                    <text 
+                        x={x + symbolOffset} 
+                        y={y} 
+                        textAnchor="middle" 
+                        dominantBaseline="middle"
+                        fill="#2563eb" 
+                        fontSize="11" 
+                        fontWeight="bold"
+                    >
+                        {symbol}
+                    </text>
+                </g>
+            );
+        };
+
+        // Composant pour ligne V-CUT avec style en V
+        const VCutLine = ({ x1, y1, x2, y2, isHorizontal }) => {
+            const vSize = 4; // Taille des encoches en V
+            const vSpacing = 15; // Espacement entre les V
+            
+            // Créer des encoches en V le long de la ligne
+            const vNotches = [];
+            if (isHorizontal) {
+                const lineLength = x2 - x1;
+                const numNotches = Math.floor(lineLength / vSpacing);
+                for (let i = 0; i <= numNotches; i++) {
+                    const x = x1 + (i * lineLength / numNotches);
+                    vNotches.push(
+                        <path
+                            key={`v-${i}`}
+                            d={`M ${x - vSize} ${y1 - vSize} L ${x} ${y1} L ${x + vSize} ${y1 - vSize}`}
+                            fill="none"
+                            stroke="#f59e0b"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                    );
+                }
+            } else {
+                const lineLength = y2 - y1;
+                const numNotches = Math.floor(lineLength / vSpacing);
+                for (let i = 0; i <= numNotches; i++) {
+                    const y = y1 + (i * lineLength / numNotches);
+                    vNotches.push(
+                        <path
+                            key={`v-${i}`}
+                            d={`M ${x1 - vSize} ${y - vSize} L ${x1} ${y} L ${x1 - vSize} ${y + vSize}`}
+                            fill="none"
+                            stroke="#f59e0b"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                    );
+                }
+            }
+            
+            return (
+                <g>
+                    {/* Ligne de base */}
+                    <line 
+                        x1={x1} 
+                        y1={y1} 
+                        x2={x2} 
+                        y2={y2} 
+                        stroke="#f59e0b" 
+                        strokeWidth="2.5" 
+                        strokeDasharray="8,4"
+                    />
+                    
+                    {/* Encoches en V */}
+                    {vNotches}
+                </g>
+            );
+        };
+
+        const PanoplieVisualization = ({ panoplieCols, panoplieRows, pcbWidth, pcbHeight, spacing, panoplieFrameMargin, orientation, svgRef, containerRef }) => {
             const cols = parseInt(panoplieCols) || 2;
             const rows = parseInt(panoplieRows) || 3;
             const pcbW = parseFloat(pcbWidth) || 80;
@@ -603,15 +734,22 @@
             const panoplieWidth = pcbAreaWidth + (2 * frame);
             const panoplieHeight = pcbAreaHeight + (2 * frame);
             
-            const scale = Math.min(800 / panoplieWidth, 600 / panoplieHeight, 2);
+            const scale = Math.min(1200 / panoplieWidth, 900 / panoplieHeight, 2.5);
             const scaledW = panoplieWidth * scale;
             const scaledH = panoplieHeight * scale;
             const scaledFrame = frame * scale;
             const scaledSpace = space * scale;
             
-            const margin = 80;
-            const svgWidth = scaledW + margin * 2;
-            const svgHeight = scaledH + margin * 2;
+            // Marges différenciées pour bien voir toutes les cotations
+            const marginLeft = 80;
+            const marginTop = 80;
+            const marginRight = 100;
+            const marginBottom = 120;
+            const svgWidth = scaledW + marginLeft + marginRight;
+            const svgHeight = scaledH + marginTop + marginBottom;
+            
+            // Utiliser marginLeft et marginTop pour positionner les éléments
+            const margin = marginLeft;
             
             const pcbs = [];
             
@@ -691,6 +829,7 @@
             };
             
             return (
+                <div ref={containerRef} className="w-full">
                 <svg ref={svgRef} width={svgWidth} height={svgHeight} className="mx-auto bg-white">
                     <rect
                         x={margin}
@@ -807,7 +946,167 @@
                             PCB: {pcbW}×{pcbH}mm | Entraxe: {space}mm | Cadre: {frame}mm
                         </text>
                     </g>
+                    
+                    {/* MIRES CMS - aux coins : x=BT/2, y=12.5mm */}
+                    {/* Bas gauche */}
+                    <CMSTarget 
+                        x={margin + (frame / 2) * scale} 
+                        y={margin + scaledH - 12.5 * scale} 
+                        scale={scale} 
+                        symbol="①"
+                        isRight={false}
+                    />
+                    {/* Bas droite */}
+                    <CMSTarget 
+                        x={margin + scaledW - (frame / 2) * scale} 
+                        y={margin + scaledH - 12.5 * scale} 
+                        scale={scale} 
+                        symbol="②"
+                        isRight={true}
+                    />
+                    {/* Haut gauche */}
+                    <CMSTarget 
+                        x={margin + (frame / 2) * scale} 
+                        y={margin + 12.5 * scale} 
+                        scale={scale} 
+                        symbol="③"
+                        isRight={false}
+                    />
+                    
+                    {/* TROUS DE LOCALISATION Ø3.05mm - aux coins : x=BT/2, y=5mm */}
+                    {/* Bas gauche */}
+                    <LocatingHole 
+                        x={margin + (frame / 2) * scale} 
+                        y={margin + scaledH - 5 * scale} 
+                        scale={scale} 
+                        symbol="A"
+                        isRight={false}
+                    />
+                    {/* Bas droite */}
+                    <LocatingHole 
+                        x={margin + scaledW - (frame / 2) * scale} 
+                        y={margin + scaledH - 5 * scale} 
+                        scale={scale} 
+                        symbol="B"
+                        isRight={true}
+                    />
+                    {/* Haut gauche */}
+                    <LocatingHole 
+                        x={margin + (frame / 2) * scale} 
+                        y={margin + 5 * scale} 
+                        scale={scale} 
+                        symbol="C"
+                        isRight={false}
+                    />
+                    
+                    {/* TRAITS DE V-CUT si entraxe = 0mm */}
+                    {space === 0 && (
+                        <>
+                            {/* V-CUT verticaux (entre les colonnes) */}
+                            {Array.from({ length: cols - 1 }, (_, i) => {
+                                const x = margin + scaledFrame + (i + 1) * pcbWidthUsed * scale;
+                                return (
+                                    <VCutLine
+                                        key={`vcut-v-${i}`}
+                                        x1={x}
+                                        y1={margin + scaledFrame}
+                                        x2={x}
+                                        y2={margin + scaledFrame + rows * pcbHeightUsed * scale}
+                                        isHorizontal={false}
+                                    />
+                                );
+                            })}
+                            
+                            {/* V-CUT horizontaux (entre les rangées) */}
+                            {Array.from({ length: rows - 1 }, (_, i) => {
+                                const y = margin + scaledFrame + (i + 1) * pcbHeightUsed * scale;
+                                return (
+                                    <VCutLine
+                                        key={`vcut-h-${i}`}
+                                        x1={margin + scaledFrame}
+                                        y1={y}
+                                        x2={margin + scaledFrame + cols * pcbWidthUsed * scale}
+                                        y2={y}
+                                        isHorizontal={true}
+                                    />
+                                );
+                            })}
+                        </>
+                    )}
                 </svg>
+                
+                {/* Tableau de légende */}
+                <div className="mt-6 max-w-4xl mx-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* MIRES CMS */}
+                        <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                            <h3 className="text-sm font-bold text-red-600 mb-3 flex items-center gap-2">
+                                <span className="text-lg">🎯</span> MIRES CMS
+                            </h3>
+                            <table className="w-full text-xs">
+                                <thead>
+                                    <tr className="border-b border-red-200">
+                                        <th className="text-left py-1 font-semibold text-red-700">Repère</th>
+                                        <th className="text-left py-1 font-semibold text-red-700">Position</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-red-800">
+                                    <tr className="border-b border-red-100">
+                                        <td className="py-2">①</td>
+                                        <td className="py-2">x = {(frame/2).toFixed(1)}mm, y = 12.5mm (Bas gauche)</td>
+                                    </tr>
+                                    <tr className="border-b border-red-100">
+                                        <td className="py-2">②</td>
+                                        <td className="py-2">x = -{(frame/2).toFixed(1)}mm, y = 12.5mm (Bas droite)</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="py-2">③</td>
+                                        <td className="py-2">x = {(frame/2).toFixed(1)}mm, y = -12.5mm (Haut gauche)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        {/* TROUS DE LOCATING */}
+                        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                            <h3 className="text-sm font-bold text-blue-600 mb-3 flex items-center gap-2">
+                                <span className="text-lg">⊙</span> TROUS DE LOCATING
+                            </h3>
+                            <table className="w-full text-xs">
+                                <thead>
+                                    <tr className="border-b border-blue-200">
+                                        <th className="text-left py-1 font-semibold text-blue-700">Repère</th>
+                                        <th className="text-left py-1 font-semibold text-blue-700">Position</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-blue-800">
+                                    <tr className="border-b border-blue-100">
+                                        <td className="py-2">A</td>
+                                        <td className="py-2">Ø3.05mm - x = {(frame/2).toFixed(1)}mm, y = 5mm (Bas gauche)</td>
+                                    </tr>
+                                    <tr className="border-b border-blue-100">
+                                        <td className="py-2">B</td>
+                                        <td className="py-2">Ø3.05mm - x = -{(frame/2).toFixed(1)}mm, y = 5mm (Bas droite)</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="py-2">C</td>
+                                        <td className="py-2">Ø3.05mm - x = {(frame/2).toFixed(1)}mm, y = -5mm (Haut gauche)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    {/* Annotation rainurage */}
+                    {space === 0 && (
+                        <div className="mt-3 text-center">
+                            <p className="text-sm text-amber-700 font-medium italic">
+                                ✂️ Rainurage entre tous les PCB (lignes orange en pointillés)
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
             );
         };
 
@@ -988,6 +1287,7 @@
 
             const [showLabels, setShowLabels] = useState(false);
             const panoplieSvgRef = React.useRef(null);
+            const panoplieContainerRef = React.useRef(null);
 
             useEffect(() => {
                 if (panoplieMode) {
@@ -1068,26 +1368,21 @@
                 alert('Export d\'image à venir ! 📸');
             };
 
-            const exportPanopliePNG = () => {
-                if (!panoplieSvgRef.current) return;
+            const exportPanopliePNG = async () => {
+                if (!panoplieContainerRef.current) return;
                 
-                const svgElement = panoplieSvgRef.current;
-                const svgString = new XMLSerializer().serializeToString(svgElement);
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                const img = new Image();
-                
-                const svgWidth = svgElement.width.baseVal.value;
-                const svgHeight = svgElement.height.baseVal.value;
-                
-                canvas.width = svgWidth * 3;
-                canvas.height = svgHeight * 3;
-                
-                img.onload = () => {
-                    ctx.fillStyle = 'white';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                try {
+                    const container = panoplieContainerRef.current;
                     
+                    // Utiliser html2canvas pour capturer toute la div (SVG + tableau)
+                    const canvas = await html2canvas(container, {
+                        scale: 2, // Haute résolution
+                        backgroundColor: '#ffffff',
+                        logging: false,
+                        useCORS: true
+                    });
+                    
+                    // Convertir en PNG et télécharger
                     canvas.toBlob((blob) => {
                         const url = URL.createObjectURL(blob);
                         const link = document.createElement('a');
@@ -1096,9 +1391,10 @@
                         link.click();
                         URL.revokeObjectURL(url);
                     }, 'image/png', 1.0);
-                };
-                
-                img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
+                } catch (error) {
+                    console.error('Erreur lors de l\'export PNG:', error);
+                    alert('Erreur lors de l\'export. Veuillez réessayer.');
+                }
             };
 
             const doubleFaceFormats = STANDARD_FORMATS.filter(f => f.category === 'DOUBLE FACE');
@@ -1166,24 +1462,12 @@
                                             </div>
                                         </button>
                                     </div>
-                                    <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded-lg mb-3">
-                                        {panoplieMode 
-                                            ? "🎯 Mode panoplie : définissez une configuration et optimisez son placement"
-                                            : "⚡ Mode optimisation : calcul automatique de la meilleure disposition"
-                                        }
-                                    </div>
                                     <div className="border-t border-gray-200 pt-3">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
                                                 <Icon name="RotateCw" className="w-4 h-4 text-purple-600" />
                                                 <div>
                                                     <h3 className="text-sm font-semibold text-gray-800">Mode Mixte</h3>
-                                                    <p className="text-xs text-gray-500">
-                                                        {panoplieMode 
-                                                            ? "Optimise le placement des panoplies"
-                                                            : "Orientations combinées pour maximiser"
-                                                        }
-                                                    </p>
                                                 </div>
                                             </div>
                                             <button
@@ -1593,7 +1877,7 @@
                                         <div className="mb-3 bg-purple-50 p-3 rounded-lg text-xs text-purple-800 border border-purple-200">
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="font-semibold flex items-center gap-1">
-                                                    <Icon name="Info" className="w-3 h-3" />
+                                                    <Icon name="Info" className="w-5 h-5" />
                                                     Détails panoplie:
                                                 </div>
                                                 <button
@@ -1676,7 +1960,7 @@
                                             className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg flex items-center gap-2 font-semibold"
                                         >
                                             <Icon name="Download" className="w-5 h-5" />
-                                            Télécharger PNG
+                                            PNG
                                         </button>
                                         <button
                                             onClick={() => setShowPanoplieModal(false)}
@@ -1696,6 +1980,7 @@
                                         panoplieFrameMargin={panoplieFrameMargin}
                                         orientation={panoplieOrientation}
                                         svgRef={panoplieSvgRef}
+                                        containerRef={panoplieContainerRef}
                                     />
                                 </div>
                                 <div className="mt-4 text-center space-y-2">
