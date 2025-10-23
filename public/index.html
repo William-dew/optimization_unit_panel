@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
         .modal-backdrop {
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(12px);
         }
         .tooltip {
             position: relative;
@@ -31,28 +31,29 @@
             bottom: 125%;
             left: 50%;
             transform: translateX(-50%);
-            background-color: #1f2937;
+            background-color: #1e293b;
             color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
+            padding: 8px 14px;
+            border-radius: 8px;
             font-size: 12px;
             white-space: nowrap;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            font-weight: 500;
         }
         .tooltip-text::after {
             content: "";
             position: absolute;
             top: 100%;
             left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
+            margin-left: -6px;
+            border-width: 6px;
             border-style: solid;
-            border-color: #1f2937 transparent transparent transparent;
+            border-color: #1e293b transparent transparent transparent;
         }
         @keyframes slideIn {
             from {
                 opacity: 0;
-                transform: translateY(-10px);
+                transform: translateY(-20px);
             }
             to {
                 opacity: 1;
@@ -60,14 +61,40 @@
             }
         }
         .slide-in {
-            animation: slideIn 0.3s ease-out;
+            animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .section-card {
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .section-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+        }
+        
+        /* Inputs professionnels */
+        input[type="number"], input[type="text"] {
+            transition: all 0.2s ease;
+        }
+        input[type="number"]:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        /* Scrollbar personnalisée */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 5px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
     </style>
 </head>
@@ -587,31 +614,35 @@
 
         // Composant pour mire CMS (cible avec croix)
         const CMSTarget = ({ x, y, scale, symbol, isRight = false }) => {
-            const size = 4 * scale; // Taille de la mire
-            const circleRadius = size * 1.2;
-            const crossSize = size * 1.8;
-            const symbolOffset = isRight ? -(circleRadius + 12) : (circleRadius + 12);
+            const size = 4 * scale;
+            const circleRadius = size * 1.3;
+            const crossSize = size * 2;
+            const symbolOffset = isRight ? -(circleRadius + 15) : (circleRadius + 15);
             
             return (
                 <g>
-                    {/* Cercle extérieur */}
-                    <circle cx={x} cy={y} r={circleRadius} fill="none" stroke="#ef4444" strokeWidth="2" />
-                    <circle cx={x} cy={y} r={circleRadius * 0.6} fill="none" stroke="#ef4444" strokeWidth="1.5" />
-                    <circle cx={x} cy={y} r={circleRadius * 0.3} fill="#ef4444" />
+                    {/* Ombre subtile */}
+                    <circle cx={x + 1} cy={y + 1} r={circleRadius} fill="#000000" opacity="0.1" />
                     
-                    {/* Croix */}
-                    <line x1={x - crossSize} y1={y} x2={x + crossSize} y2={y} stroke="#ef4444" strokeWidth="2" />
-                    <line x1={x} y1={y - crossSize} x2={x} y2={y + crossSize} stroke="#ef4444" strokeWidth="2" />
+                    {/* Cercles de la cible */}
+                    <circle cx={x} cy={y} r={circleRadius} fill="none" stroke="#dc2626" strokeWidth="2.5" />
+                    <circle cx={x} cy={y} r={circleRadius * 0.65} fill="none" stroke="#dc2626" strokeWidth="2" />
+                    <circle cx={x} cy={y} r={circleRadius * 0.35} fill="none" stroke="#dc2626" strokeWidth="1.5" />
+                    <circle cx={x} cy={y} r={circleRadius * 0.15} fill="#dc2626" />
                     
-                    {/* Symbole circulé à côté */}
-                    <circle cx={x + symbolOffset} cy={y} r="8" fill="white" stroke="#ef4444" strokeWidth="1.5" />
+                    {/* Croix de visée */}
+                    <line x1={x - crossSize} y1={y} x2={x + crossSize} y2={y} stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
+                    <line x1={x} y1={y - crossSize} x2={x} y2={y + crossSize} stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
+                    
+                    {/* Badge avec symbole */}
+                    <circle cx={x + symbolOffset} cy={y} r="10" fill="white" stroke="#dc2626" strokeWidth="2" filter="url(#shadow)" />
                     <text 
                         x={x + symbolOffset} 
                         y={y} 
                         textAnchor="middle" 
                         dominantBaseline="middle"
-                        fill="#ef4444" 
-                        fontSize="11" 
+                        fill="#dc2626" 
+                        fontSize="12" 
                         fontWeight="bold"
                     >
                         {symbol}
@@ -624,27 +655,41 @@
         const LocatingHole = ({ x, y, scale, symbol, isRight = false }) => {
             const diameter = 3.05;
             const radius = (diameter / 2) * scale;
-            const symbolOffset = isRight ? -(radius + 8) : (radius + 8);
+            const symbolOffset = isRight ? -(radius + 12) : (radius + 12);
             
             return (
                 <g>
-                    {/* Trou */}
+                    {/* Ombre */}
+                    <circle cx={x + 1} cy={y + 1} r={radius + 2} fill="#000000" opacity="0.1" />
+                    
+                    {/* Trou principal */}
+                    <circle cx={x} cy={y} r={radius + 2} fill="none" stroke="#2563eb" strokeWidth="2.5" />
                     <circle cx={x} cy={y} r={radius} fill="white" stroke="#2563eb" strokeWidth="2" />
-                    <circle cx={x} cy={y} r={radius * 0.5} fill="none" stroke="#2563eb" strokeWidth="1" strokeDasharray="2,2" />
+                    <circle cx={x} cy={y} r={radius * 0.4} fill="none" stroke="#2563eb" strokeWidth="1.5" strokeDasharray="2,2" />
                     
                     {/* Croix de centrage */}
-                    <line x1={x - radius * 1.5} y1={y} x2={x + radius * 1.5} y2={y} stroke="#2563eb" strokeWidth="1" />
-                    <line x1={x} y1={y - radius * 1.5} x2={x} y2={y + radius * 1.5} stroke="#2563eb" strokeWidth="1" />
+                    <line x1={x - radius * 2} y1={y} x2={x + radius * 2} y2={y} stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" />
+                    <line x1={x} y1={y - radius * 2} x2={x} y2={y + radius * 2} stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" />
                     
-                    {/* Symbole carré à côté */}
-                    <rect x={x + symbolOffset - 7} y={y - 7} width="14" height="14" fill="white" stroke="#2563eb" strokeWidth="1.5" rx="2" />
+                    {/* Badge avec symbole */}
+                    <rect 
+                        x={x + symbolOffset - 9} 
+                        y={y - 9} 
+                        width="18" 
+                        height="18" 
+                        fill="white" 
+                        stroke="#2563eb" 
+                        strokeWidth="2" 
+                        rx="3"
+                        filter="url(#shadow)"
+                    />
                     <text 
                         x={x + symbolOffset} 
                         y={y} 
                         textAnchor="middle" 
                         dominantBaseline="middle"
                         fill="#2563eb" 
-                        fontSize="11" 
+                        fontSize="12" 
                         fontWeight="bold"
                     >
                         {symbol}
@@ -655,8 +700,8 @@
 
         // Composant pour ligne V-CUT avec style en V
         const VCutLine = ({ x1, y1, x2, y2, isHorizontal }) => {
-            const vSize = 4; // Taille des encoches en V
-            const vSpacing = 15; // Espacement entre les V
+            const vSize = 5;
+            const vSpacing = 20;
             
             // Créer des encoches en V le long de la ligne
             const vNotches = [];
@@ -671,7 +716,7 @@
                             d={`M ${x - vSize} ${y1 - vSize} L ${x} ${y1} L ${x + vSize} ${y1 - vSize}`}
                             fill="none"
                             stroke="#f59e0b"
-                            strokeWidth="2"
+                            strokeWidth="2.5"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                         />
@@ -688,7 +733,7 @@
                             d={`M ${x1 - vSize} ${y - vSize} L ${x1} ${y} L ${x1 - vSize} ${y + vSize}`}
                             fill="none"
                             stroke="#f59e0b"
-                            strokeWidth="2"
+                            strokeWidth="2.5"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                         />
@@ -705,8 +750,9 @@
                         x2={x2} 
                         y2={y2} 
                         stroke="#f59e0b" 
-                        strokeWidth="2.5" 
-                        strokeDasharray="8,4"
+                        strokeWidth="2" 
+                        strokeDasharray="10,5"
+                        opacity="0.8"
                     />
                     
                     {/* Encoches en V */}
@@ -761,17 +807,40 @@
                     const h = pcbHeightUsed * scale;
                     
                     pcbs.push(
-                        <rect
-                            key={`pcb-${row}-${col}`}
-                            x={x}
-                            y={y}
-                            width={w}
-                            height={h}
-                            fill="#10b981"
-                            stroke="#059669"
-                            strokeWidth="2"
-                            rx="3"
-                        />
+                        <g key={`pcb-group-${row}-${col}`}>
+                            {/* Ombre du PCB */}
+                            <rect
+                                x={x + 2}
+                                y={y + 2}
+                                width={w}
+                                height={h}
+                                fill="#000000"
+                                opacity="0.1"
+                                rx="4"
+                            />
+                            {/* PCB principal */}
+                            <rect
+                                key={`pcb-${row}-${col}`}
+                                x={x}
+                                y={y}
+                                width={w}
+                                height={h}
+                                fill="url(#pcbGradient)"
+                                stroke="#047857"
+                                strokeWidth="2.5"
+                                rx="4"
+                            />
+                            {/* Reflet subtil */}
+                            <rect
+                                x={x + 4}
+                                y={y + 4}
+                                width={w - 8}
+                                height={(h - 8) * 0.3}
+                                fill="white"
+                                opacity="0.15"
+                                rx="2"
+                            />
+                        </g>
                     );
                     
                     pcbs.push(
@@ -782,9 +851,9 @@
                             textAnchor="middle"
                             dominantBaseline="middle"
                             fill="#ffffff"
-                            fontSize="14"
-                            fontWeight="bold"
-                            style={{ pointerEvents: 'none' }}
+                            fontSize="16"
+                            fontWeight="600"
+                            style={{ pointerEvents: 'none', textShadow: '0 1px 3px rgba(0,0,0,0.3)' }}
                         >
                             {row * cols + col + 1}
                         </text>
@@ -801,12 +870,30 @@
                     const lineY = side === 'top' ? y1 - offset : y1 + offset;
                     return (
                         <g key={`dim-${x1}-${y1}-${x2}-${y2}`}>
-                            <line x1={x1} y1={lineY} x2={x2} y2={lineY} stroke="#dc2626" strokeWidth="2" />
-                            <polygon points={`${x1},${lineY} ${x1+8},${lineY-4} ${x1+8},${lineY+4}`} fill="#dc2626" />
-                            <polygon points={`${x2},${lineY} ${x2-8},${lineY-4} ${x2-8},${lineY+4}`} fill="#dc2626" />
-                            <line x1={x1} y1={y1} x2={x1} y2={lineY} stroke="#dc2626" strokeWidth="1" strokeDasharray="3,3" />
-                            <line x1={x2} y1={y2} x2={x2} y2={lineY} stroke="#dc2626" strokeWidth="1" strokeDasharray="3,3" />
-                            <text x={midX} y={lineY + (side === 'top' ? -10 : 20)} textAnchor="middle" fill="#dc2626" fontSize="12" fontWeight="bold">
+                            <line x1={x1} y1={lineY} x2={x2} y2={lineY} stroke="#374151" strokeWidth="2" />
+                            <polygon points={`${x1},${lineY} ${x1+8},${lineY-4} ${x1+8},${lineY+4}`} fill="#374151" />
+                            <polygon points={`${x2},${lineY} ${x2-8},${lineY-4} ${x2-8},${lineY+4}`} fill="#374151" />
+                            <line x1={x1} y1={y1} x2={x1} y2={lineY} stroke="#9ca3af" strokeWidth="1" strokeDasharray="4,4" />
+                            <line x1={x2} y1={y2} x2={x2} y2={lineY} stroke="#9ca3af" strokeWidth="1" strokeDasharray="4,4" />
+                            <rect 
+                                x={midX - 30} 
+                                y={lineY + (side === 'top' ? -24 : 6)} 
+                                width="60" 
+                                height="18" 
+                                fill="white" 
+                                stroke="#374151" 
+                                strokeWidth="1"
+                                rx="3"
+                            />
+                            <text 
+                                x={midX} 
+                                y={lineY + (side === 'top' ? -11 : 19)} 
+                                textAnchor="middle" 
+                                fill="#374151" 
+                                fontSize="11" 
+                                fontWeight="600"
+                                fontFamily="monospace"
+                            >
                                 {label}
                             </text>
                         </g>
@@ -815,12 +902,31 @@
                     const lineX = side === 'left' ? x1 - offset : x1 + offset;
                     return (
                         <g key={`dim-${x1}-${y1}-${x2}-${y2}`}>
-                            <line x1={lineX} y1={y1} x2={lineX} y2={y2} stroke="#dc2626" strokeWidth="2" />
-                            <polygon points={`${lineX},${y1} ${lineX-4},${y1+8} ${lineX+4},${y1+8}`} fill="#dc2626" />
-                            <polygon points={`${lineX},${y2} ${lineX-4},${y2-8} ${lineX+4},${y2-8}`} fill="#dc2626" />
-                            <line x1={x1} y1={y1} x2={lineX} y2={y1} stroke="#dc2626" strokeWidth="1" strokeDasharray="3,3" />
-                            <line x1={x2} y1={y2} x2={lineX} y2={y2} stroke="#dc2626" strokeWidth="1" strokeDasharray="3,3" />
-                            <text x={lineX + (side === 'left' ? -10 : 10)} y={midY} textAnchor={side === 'left' ? 'end' : 'start'} dominantBaseline="middle" fill="#dc2626" fontSize="12" fontWeight="bold">
+                            <line x1={lineX} y1={y1} x2={lineX} y2={y2} stroke="#374151" strokeWidth="2" />
+                            <polygon points={`${lineX},${y1} ${lineX-4},${y1+8} ${lineX+4},${y1+8}`} fill="#374151" />
+                            <polygon points={`${lineX},${y2} ${lineX-4},${y2-8} ${lineX+4},${y2-8}`} fill="#374151" />
+                            <line x1={x1} y1={y1} x2={lineX} y2={y1} stroke="#9ca3af" strokeWidth="1" strokeDasharray="4,4" />
+                            <line x1={x2} y1={y2} x2={lineX} y2={y2} stroke="#9ca3af" strokeWidth="1" strokeDasharray="4,4" />
+                            <rect 
+                                x={lineX + (side === 'left' ? -35 : 5)} 
+                                y={midY - 9} 
+                                width="60" 
+                                height="18" 
+                                fill="white" 
+                                stroke="#374151" 
+                                strokeWidth="1"
+                                rx="3"
+                            />
+                            <text 
+                                x={lineX + (side === 'left' ? -5 : 35)} 
+                                y={midY} 
+                                textAnchor="middle" 
+                                dominantBaseline="middle" 
+                                fill="#374151" 
+                                fontSize="11" 
+                                fontWeight="600"
+                                fontFamily="monospace"
+                            >
                                 {label}
                             </text>
                         </g>
@@ -829,27 +935,66 @@
             };
             
             return (
-                <div ref={containerRef} className="w-full">
-                <svg ref={svgRef} width={svgWidth} height={svgHeight} className="mx-auto bg-white">
+                <div ref={containerRef} className="w-full bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-xl shadow-2xl">
+                    {/* En-tête professionnel */}
+                    <div className="mb-6 pb-4 border-b-2 border-gray-300">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-800 tracking-tight">PLAN DE PANOPLIE</h2>
+                                <p className="text-sm text-gray-500 font-medium mt-1">Cotations et spécifications techniques</p>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-xs text-gray-500 uppercase tracking-wider">Configuration</div>
+                                <div className="text-lg font-bold text-gray-700">{cols}×{rows} PCB</div>
+                                <div className="text-xs text-gray-600">{panoplieWidth.toFixed(1)}×{panoplieHeight.toFixed(1)}mm</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                <svg ref={svgRef} width={svgWidth} height={svgHeight} className="mx-auto bg-white rounded-lg shadow-inner">
+                    {/* Fond avec grille technique */}
+                    <defs>
+                        <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e5e7eb" strokeWidth="0.5"/>
+                        </pattern>
+                        <pattern id="gridMajor" width="100" height="100" patternUnits="userSpaceOnUse">
+                            <rect width="100" height="100" fill="url(#grid)"/>
+                            <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#d1d5db" strokeWidth="1"/>
+                        </pattern>
+                        <filter id="shadow">
+                            <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.15"/>
+                        </filter>
+                        <linearGradient id="pcbGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style={{ stopColor: '#10b981', stopOpacity: 1 }} />
+                            <stop offset="100%" style={{ stopColor: '#059669', stopOpacity: 1 }} />
+                        </linearGradient>
+                    </defs>
+                    
+                    {/* Fond avec grille */}
+                    <rect width={svgWidth} height={svgHeight} fill="url(#gridMajor)"/>
+                    
+                    {/* Cadre externe principal */}
                     <rect
                         x={margin}
                         y={margin}
                         width={scaledW}
                         height={scaledH}
                         fill="none"
-                        stroke="#9ca3af"
-                        strokeWidth="2"
-                        strokeDasharray="5,5"
-                        rx="4"
+                        stroke="#1f2937"
+                        strokeWidth="3"
+                        rx="2"
                     />
                     
+                    {/* Zone bande technique (cadre) */}
                     <rect
                         x={margin + scaledFrame}
                         y={margin + scaledFrame}
                         width={scaledW - 2 * scaledFrame}
                         height={scaledH - 2 * scaledFrame}
-                        fill="#f3f4f6"
-                        stroke="none"
+                        fill="#f8fafc"
+                        stroke="#94a3b8"
+                        strokeWidth="1.5"
+                        strokeDasharray="4,4"
                     />
                     
                     {pcbs}
@@ -937,15 +1082,6 @@
                         offset={20}
                         side="left"
                     />
-                    
-                    <g transform={`translate(${margin}, ${margin + scaledH + 50})`}>
-                        <text x="0" y="0" fill="#374151" fontSize="14" fontWeight="bold">
-                            Configuration: {cols}×{rows} PCB | Orientation: {orientation}°
-                        </text>
-                        <text x="0" y="20" fill="#4b5563" fontSize="12">
-                            PCB: {pcbW}×{pcbH}mm | Entraxe: {space}mm | Cadre: {frame}mm
-                        </text>
-                    </g>
                     
                     {/* MIRES CMS - aux coins : x=BT/2, y=12.5mm */}
                     {/* Bas gauche */}
@@ -1035,76 +1171,92 @@
                     )}
                 </svg>
                 
-                {/* Tableau de légende */}
-                <div className="mt-6 max-w-4xl mx-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* MIRES CMS */}
-                        <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
-                            <h3 className="text-sm font-bold text-red-600 mb-3 flex items-center gap-2">
-                                <span className="text-lg">🎯</span> MIRES CMS
+                {/* Tableau de légende professionnel */}
+                <div className="mt-8 max-w-4xl mx-auto">
+                    <div className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200">
+                        {/* En-tête du tableau */}
+                        <div className="bg-gradient-to-r from-gray-800 to-gray-700 px-6 py-3">
+                            <h3 className="text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                Légende et spécifications
                             </h3>
-                            <table className="w-full text-xs">
-                                <thead>
-                                    <tr className="border-b border-red-200">
-                                        <th className="text-left py-1 font-semibold text-red-700">Repère</th>
-                                        <th className="text-left py-1 font-semibold text-red-700">Position</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="text-red-800">
-                                    <tr className="border-b border-red-100">
-                                        <td className="py-2">①</td>
-                                        <td className="py-2">x = {(frame/2).toFixed(1)}mm, y = 12.5mm (Bas gauche)</td>
-                                    </tr>
-                                    <tr className="border-b border-red-100">
-                                        <td className="py-2">②</td>
-                                        <td className="py-2">x = -{(frame/2).toFixed(1)}mm, y = 12.5mm (Bas droite)</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-2">③</td>
-                                        <td className="py-2">x = {(frame/2).toFixed(1)}mm, y = -12.5mm (Haut gauche)</td>
-                                    </tr>
-                                </tbody>
-                            </table>
                         </div>
                         
-                        {/* TROUS DE LOCATING */}
-                        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-                            <h3 className="text-sm font-bold text-blue-600 mb-3 flex items-center gap-2">
-                                <span className="text-lg">⊙</span> TROUS DE LOCATING
-                            </h3>
-                            <table className="w-full text-xs">
-                                <thead>
-                                    <tr className="border-b border-blue-200">
-                                        <th className="text-left py-1 font-semibold text-blue-700">Repère</th>
-                                        <th className="text-left py-1 font-semibold text-blue-700">Position</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="text-blue-800">
-                                    <tr className="border-b border-blue-100">
-                                        <td className="py-2">A</td>
-                                        <td className="py-2">Ø3.05mm - x = {(frame/2).toFixed(1)}mm, y = 5mm (Bas gauche)</td>
-                                    </tr>
-                                    <tr className="border-b border-blue-100">
-                                        <td className="py-2">B</td>
-                                        <td className="py-2">Ø3.05mm - x = -{(frame/2).toFixed(1)}mm, y = 5mm (Bas droite)</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-2">C</td>
-                                        <td className="py-2">Ø3.05mm - x = {(frame/2).toFixed(1)}mm, y = -5mm (Haut gauche)</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* MIRES CMS */}
+                            <div className="border-l-4 border-red-500 pl-4">
+                                <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide flex items-center gap-2">
+                                    <span className="flex items-center justify-center w-6 h-6 bg-red-100 rounded-full text-red-600 text-xs">🎯</span>
+                                    Mires CMS
+                                </h4>
+                                <table className="w-full text-xs border-collapse">
+                                    <thead>
+                                        <tr className="bg-gray-50">
+                                            <th className="text-left py-2 px-3 font-semibold text-gray-600 border-b border-gray-200">Repère</th>
+                                            <th className="text-left py-2 px-3 font-semibold text-gray-600 border-b border-gray-200">Position (mm)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-gray-700">
+                                        <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                            <td className="py-2 px-3 font-mono font-semibold text-red-600">①</td>
+                                            <td className="py-2 px-3 font-mono">x={(frame/2).toFixed(1)}, y=12.5 (Bas gauche)</td>
+                                        </tr>
+                                        <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                            <td className="py-2 px-3 font-mono font-semibold text-red-600">②</td>
+                                            <td className="py-2 px-3 font-mono">x=-{(frame/2).toFixed(1)}, y=12.5 (Bas droite)</td>
+                                        </tr>
+                                        <tr className="hover:bg-gray-50 transition-colors">
+                                            <td className="py-2 px-3 font-mono font-semibold text-red-600">③</td>
+                                            <td className="py-2 px-3 font-mono">x={(frame/2).toFixed(1)}, y=-12.5 (Haut gauche)</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            {/* TROUS DE LOCATING */}
+                            <div className="border-l-4 border-blue-500 pl-4">
+                                <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide flex items-center gap-2">
+                                    <span className="flex items-center justify-center w-6 h-6 bg-blue-100 rounded-full text-blue-600 text-xs">⊙</span>
+                                    Trous de locating
+                                </h4>
+                                <table className="w-full text-xs border-collapse">
+                                    <thead>
+                                        <tr className="bg-gray-50">
+                                            <th className="text-left py-2 px-3 font-semibold text-gray-600 border-b border-gray-200">Repère</th>
+                                            <th className="text-left py-2 px-3 font-semibold text-gray-600 border-b border-gray-200">Ø / Position (mm)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-gray-700">
+                                        <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                            <td className="py-2 px-3 font-mono font-semibold text-blue-600">A</td>
+                                            <td className="py-2 px-3 font-mono">3.05 - x={(frame/2).toFixed(1)}, y=5 (Bas gauche)</td>
+                                        </tr>
+                                        <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                            <td className="py-2 px-3 font-mono font-semibold text-blue-600">B</td>
+                                            <td className="py-2 px-3 font-mono">3.05 - x=-{(frame/2).toFixed(1)}, y=5 (Bas droite)</td>
+                                        </tr>
+                                        <tr className="hover:bg-gray-50 transition-colors">
+                                            <td className="py-2 px-3 font-mono font-semibold text-blue-600">C</td>
+                                            <td className="py-2 px-3 font-mono">3.05 - x={(frame/2).toFixed(1)}, y=-5 (Haut gauche)</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
+                        
+                        {/* Annotation rainurage */}
+                        {space === 0 && (
+                            <div className="bg-amber-50 border-t border-amber-200 px-6 py-3">
+                                <div className="flex items-center gap-3 text-sm text-amber-800">
+                                    <span className="flex items-center justify-center w-8 h-8 bg-amber-200 rounded-full text-amber-900 font-bold">✂</span>
+                                    <span className="font-medium">Rainurage V-CUT entre tous les PCB</span>
+                                    <span className="text-xs italic opacity-75">(lignes orange en pointillés)</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                    
-                    {/* Annotation rainurage */}
-                    {space === 0 && (
-                        <div className="mt-3 text-center">
-                            <p className="text-sm text-amber-700 font-medium italic">
-                                ✂️ Rainurage entre tous les PCB (lignes orange en pointillés)
-                            </p>
-                        </div>
-                    )}
                 </div>
             </div>
             );
@@ -1401,99 +1553,119 @@
             const multicouchesFormats = STANDARD_FORMATS.filter(f => f.category === 'MULTICOUCHES');
 
             return (
-                <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-3">
-                    <div className="max-w-7xl mx-auto">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg">
-                                    <Icon name="Calculator" className="w-6 h-6 text-white" />
+                <div className="min-h-screen bg-gradient-to-br from-slate-100 via-gray-50 to-slate-100">
+                    {/* Header professionnel */}
+                    <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 shadow-xl border-b-4 border-blue-500">
+                        <div className="max-w-7xl mx-auto px-6 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg">
+                                        <Icon name="Cpu" className="w-8 h-8 text-white" />
+                                    </div>
+                                    <div>
+                                        <h1 className="text-2xl font-bold text-white tracking-tight">
+                                            PANÉLISATION PCB
+                                        </h1>
+                                        <p className="text-sm text-blue-200 font-medium">William-DEW</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                                        Panélisation | William-Dew
-                                    </h1>
-                                    <p className="text-xs text-gray-600">Optimisation PCB</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <Tooltip text="Exporter l'image">
+                                <div className="flex items-center gap-3">
+                                    <div className="text-right">
+                                        <div className="text-xs text-blue-200 uppercase tracking-wider">Version</div>
+                                        <div className="text-sm font-bold text-white">2.0</div>
+                                    </div>
                                     <button
                                         onClick={exportAsImage}
-                                        className="p-2 bg-white rounded-lg shadow hover:shadow-md transition-all"
+                                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2 font-semibold"
                                     >
-                                        <Icon name="Download" className="w-5 h-5 text-green-600" />
+                                        <Icon name="Download" className="w-4 h-4" />
+                                        Exporter
                                     </button>
-                                </Tooltip>
+                                </div>
                             </div>
                         </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                            <div className="space-y-3">
-                                <div className="bg-white rounded-xl shadow-lg p-4 section-card">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <Icon name="Settings" className="w-4 h-4 text-indigo-600" />
-                                        <h2 className="text-base font-semibold text-gray-800">Mode de Calcul</h2>
+                    </div>
+                    
+                    <div className="max-w-7xl mx-auto p-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="space-y-6">
+                                {/* Mode de Calcul */}
+                                <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                                    <div className="bg-gradient-to-r from-slate-700 to-slate-600 px-5 py-3">
+                                        <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                            <Icon name="Settings" className="w-4 h-4" />
+                                            Mode de Calcul
+                                        </h2>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2 mb-3">
+                                    <div className="p-5">
+                                    <div className="grid grid-cols-2 gap-3 mb-4">
                                         <button
                                             onClick={() => setPanoplieMode(false)}
-                                            className={`px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                            className={`px-6 py-4 rounded-lg font-semibold transition-all duration-200 shadow-md ${ 
                                                 !panoplieMode
-                                                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md scale-105'
-                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                    ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg scale-105 border-2 border-blue-500'
+                                                    : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-200 hover:border-gray-300'
                                             }`}
                                         >
-                                            <div className="flex flex-col items-center gap-1">
-                                                <Icon name="CircuitBoard" className="w-5 h-5" />
-                                                <span>Unitaire</span>
+                                            <div className="flex flex-col items-center gap-2">
+                                                <Icon name="CircuitBoard" className="w-6 h-6" />
+                                                <span className="text-sm">Unitaire</span>
                                             </div>
                                         </button>
                                         <button
                                             onClick={() => setPanoplieMode(true)}
-                                            className={`px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                            className={`px-6 py-4 rounded-lg font-semibold transition-all duration-200 shadow-md ${
                                                 panoplieMode
-                                                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-md scale-105'
-                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                    ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-lg scale-105 border-2 border-blue-500'
+                                                    : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-200 hover:border-gray-300'
                                             }`}
                                         >
-                                            <div className="flex flex-col items-center gap-1">
-                                                <Icon name="Grid3x3" className="w-5 h-5" />
-                                                <span>Panoplie</span>
+                                            <div className="flex flex-col items-center gap-2">
+                                                <Icon name="Grid3x3" className="w-6 h-6" />
+                                                <span className="text-sm">Panoplie</span>
                                             </div>
                                         </button>
                                     </div>
-                                    <div className="border-t border-gray-200 pt-3">
+                                    
+                                    {/* Mode Mixte */}
+                                    <div className="mt-4 bg-slate-50 rounded-lg p-4 border border-slate-200">
                                         <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <Icon name="RotateCw" className="w-4 h-4 text-purple-600" />
+                                            <div className="flex items-center gap-3">
+                                                <Icon name="RotateCw" className="w-5 h-5 text-blue-600" />
                                                 <div>
                                                     <h3 className="text-sm font-semibold text-gray-800">Mode Mixte</h3>
+                                                    <p className="text-xs text-gray-500">Orientation combinée</p>
                                                 </div>
                                             </div>
                                             <button
                                                 onClick={() => setEnableMixedMode(!enableMixedMode)}
-                                                className={`relative w-14 h-7 rounded-full transition-colors duration-200 ${
-                                                    enableMixedMode ? 'bg-green-500' : 'bg-gray-300'
+                                                className={`relative w-16 h-8 rounded-full transition-all duration-200 shadow-inner ${
+                                                    enableMixedMode ? 'bg-blue-600' : 'bg-gray-300'
                                                 }`}
                                             >
                                                 <span
-                                                    className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full transition-transform duration-200 shadow ${
-                                                        enableMixedMode ? 'transform translate-x-7' : ''
+                                                    className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform duration-200 shadow-md ${
+                                                        enableMixedMode ? 'transform translate-x-8' : ''
                                                     }`}
                                                 />
                                             </button>
                                         </div>
                                     </div>
+                                    </div>
                                 </div>
 
-                                <div className="bg-white rounded-xl shadow-lg p-4 section-card">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <Icon name="Maximize2" className="w-4 h-4 text-blue-600" />
-                                        <h2 className="text-base font-semibold text-gray-800">Format du Panneau</h2>
+                                {/* Format du Panneau */}
+                                <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                                    <div className="bg-gradient-to-r from-slate-700 to-slate-600 px-5 py-3">
+                                        <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                            <Icon name="Maximize2" className="w-4 h-4" />
+                                            Format du Panneau
+                                        </h2>
                                     </div>
-                                    <div className="space-y-2">
+                                    <div className="p-5">
+                                    <div className="space-y-4">
                                         <div>
-                                            <div className="text-xs font-semibold text-gray-600 mb-1">DOUBLE FACE</div>
+                                            <div className="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide border-l-4 border-blue-500 pl-2">Double Face</div>
                                             <div className="grid grid-cols-3 gap-2">
                                                 {doubleFaceFormats.map((format) => (
                                                     <button
@@ -1563,6 +1735,7 @@
                                             {' - '}
                                             <span className="font-semibold text-blue-700">{panelFormat.width} × {panelFormat.height} mm</span>
                                         </div>
+                                    </div>
                                     </div>
                                 </div>
 
